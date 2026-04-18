@@ -166,6 +166,12 @@ class GameEngine:
 
     def build_round(self, round_num: int) -> RoundState:
         eligible = {k: v for k, v in self.categories.items() if len(v) >= 4}
+        if len(eligible) < 4:
+            raise RuntimeError(
+                f"Not enough eligible categories (need ≥4, found {len(eligible)}). "
+                "Check that data/categorized_words_phrases.csv is properly quoted — "
+                "the words_and_phrases column must be wrapped in double quotes."
+            )
         chosen   = random.sample(list(eligible.keys()), 4)
 
         groups: list[GroupData] = []

@@ -1,71 +1,71 @@
 #,category,words_and_phrases
-1,Electrical Elements,[AC,DC,Voltage,Watt,Volt,Ampere,Ohm,Resistance,Fuse,Circuit,Capacitor,Transistor]
-2,Transportation,[Car,Bike,Scooter,Bus,Train,Aeroplane,Rocket,Subway,Ferry,Helicopter,Tram,Yacht]
-3,Geometry,[Triangle,Square,Rectangle,Circle,Hexagon,Octagon,Rhombus,Pentagon,Ellipse,Trapezoid,Parallelogram,Cylinder]
-4,Fruits,[Apple,Banana,Mango,Orange,Grape,Kiwi,Peach,Plum,Cherry,Papaya,Pineapple,Watermelon]
-5,Vegetables,[Carrot,Broccoli,Spinach,Onion,Potato,Tomato,Cabbage,Lettuce,Beetroot,Cauliflower,Zucchini,Radish]
-6,Planets and Space,[Mars,Jupiter,Saturn,Neptune,Mercury,Venus,Uranus,Comet,Asteroid,Nebula,Pulsar,Quasar]
-7,Music Instruments,[Piano,Guitar,Violin,Flute,Drums,Trumpet,Cello,Harp,Saxophone,Clarinet,Banjo,Accordion]
-8,Sports,[Soccer,Tennis,Rugby,Basketball,Cricket,Volleyball,Badminton,Swimming,Boxing,Golf,Archery,Fencing]
-9,Programming Languages,[Python,JavaScript,Java,Ruby,Swift,Kotlin,Rust,Go,TypeScript,PHP,Scala,Haskell]
-10,Countries,[France,Japan,Brazil,India,Canada,Germany,Australia,Mexico,Italy,Egypt,Thailand,Argentina]
-11,Dances,[Salsa,Tango,Ballet,Waltz,Breakdance,Flamenco,Jive,Rumba,Polka,Foxtrot,Cha-Cha,Bhangra]
-12,Currencies,[Dollar,Euro,Yen,Pound,Rupee,Franc,Krona,Peso,Ruble,Dinar,Baht,Dirham]
-13,Ocean Creatures,[Shark,Dolphin,Whale,Octopus,Seahorse,Clownfish,Starfish,Jellyfish,Lobster,Crab,Eel,Manta Ray]
-14,Emotions,[Joy,Anger,Fear,Sadness,Surprise,Disgust,Love,Envy,Pride,Hope,Guilt,Shame]
-15,Mythology Gods,[Zeus,Odin,Thor,Poseidon,Athena,Apollo,Artemis,Hermes,Loki,Ra,Vishnu,Shiva]
-16,Historical Figures,[Cleopatra,Napoleon,Caesar,Alexander,Einstein,Darwin,Newton,Shakespeare,Lincoln,Gandhi,Confucius,Columbus]
-17,Shades of Color,[Crimson,Cerulean,Magenta,Indigo,Scarlet,Amber,Chartreuse,Vermilion,Turquoise,Sienna,Ochre,Cobalt]
-18,Trees,[Oak,Maple,Pine,Birch,Redwood,Bamboo,Cedar,Willow,Mahogany,Eucalyptus,Banyan,Spruce]
-19,Superpowers,[Flight,Telepathy,Invisibility,Telekinesis,Time Travel,Healing,Shape-shifting,Speed,Clairvoyance,Duplication,Intangibility,Magnetism]
-20,Food Dishes,[Sushi,Tacos,Pizza,Biryani,Ramen,Paella,Croissant,Pho,Moussaka,Kebab,Fondue,Rendang]
-21,Musical Genres,[Jazz,Rock,Classical,Hip-Hop,Country,Reggae,Blues,Pop,Metal,Funk,Soul,Electronic]
-22,Card Games,[Poker,Blackjack,Rummy,Bridge,Solitaire,Snap,Cribbage,Canasta,Euchre,Spades,Hearts,Gin]
-23,Board Games,[Chess,Checkers,Monopoly,Scrabble,Risk,Clue,Battleship,Go,Backgammon,Othello,Dominoes,Mahjong]
-24,Phobias,[Arachnophobia,Claustrophobia,Acrophobia,Agoraphobia,Thalassophobia,Nyctophobia,Pyrophobia,Cynophobia,Ophidiophobia,Hemophobia,Aviophobia,Xenophobia]
-25,Literary Genres,[Mystery,Romance,Thriller,Fantasy,Horror,Biography,Adventure,Dystopian,Satire,Gothic,Noir,Fable]
-26,Kitchen Tools,[Spatula,Whisk,Colander,Ladle,Tongs,Peeler,Zester,Skillet,Wok,Ramekin,Mandoline,Mortar]
-27,Fashion Items,[Blazer,Trench Coat,Cardigan,Parka,Kimono,Sari,Kilt,Poncho,Tunic,Sundress,Tuxedo,Caftan]
-28,Weather Phenomena,[Tornado,Blizzard,Monsoon,Drought,Hailstorm,Cyclone,Fog,Aurora,Thunderstorm,Avalanche,Sandstorm,Rainbow]
-29,Chemical Elements,[Hydrogen,Oxygen,Carbon,Gold,Silver,Iron,Copper,Helium,Nitrogen,Uranium,Platinum,Neon]
-30,Superheroes,[Batman,Superman,Spider-Man,Wonder Woman,Iron Man,Captain America,Black Panther,Hulk,Flash,Aquaman,Wolverine,Hawkeye]
-31,Art Movements,[Cubism,Surrealism,Impressionism,Baroque,Renaissance,Romanticism,Dadaism,Pop Art,Futurism,Minimalism,Expressionism,Realism]
-32,Cocktails,[Mojito,Margarita,Martini,Cosmopolitan,Negroni,Daiquiri,Manhattan,Old Fashioned,Bellini,Sangria,Mimosa,Spritz]
-33,Scientific Fields,[Biology,Chemistry,Physics,Astronomy,Psychology,Geology,Ecology,Anthropology,Botany,Neuroscience,Oceanography,Genetics]
-34,Cartoon Characters,[Mickey Mouse,Bugs Bunny,Scooby-Doo,Pikachu,Goku,Naruto,SpongeBob,Bart Simpson,Popeye,Daffy Duck,Tweety,Yogi Bear]
-35,Breakfast Foods,[Pancakes,Waffles,Omelette,Granola,Bagel,Porridge,French Toast,Frittata,Shakshuka,Crepe,Muesli,Quiche]
-36,Architectural Styles,[Gothic,Baroque,Art Deco,Brutalist,Modernist,Victorian,Colonial,Tudor,Mediterranean,Craftsman,Neoclassical,Prairie]
-37,Types of Clouds,[Cumulus,Stratus,Cirrus,Nimbus,Cumulonimbus,Altocumulus,Altostratus,Cirrocumulus,Stratocumulus,Cirrostratus,Mammatus,Lenticular]
-38,Yoga Poses,[Downward Dog,Warrior,Tree Pose,Cobra,Lotus,Plank,Mountain Pose,Child's Pose,Pigeon,Crow Pose,Bridge,Headstand]
-39,Dog Breeds,[Labrador,Poodle,Bulldog,Beagle,Husky,Dachshund,Dalmatian,Chihuahua,Rottweiler,Corgi,Pomeranian,Shih Tzu]
-40,Cat Breeds,[Siamese,Persian,Bengal,Maine Coon,Ragdoll,Sphynx,Burmese,Abyssinian,Birman,Scottish Fold,Tonkinese,Manx]
-41,Gemstones,[Diamond,Ruby,Emerald,Sapphire,Amethyst,Topaz,Opal,Garnet,Pearl,Aquamarine,Turquoise,Citrine]
-42,Spices and Herbs,[Cinnamon,Turmeric,Basil,Oregano,Cumin,Saffron,Cardamom,Paprika,Rosemary,Thyme,Clove,Nutmeg]
-43,Fonts and Typefaces,[Arial,Helvetica,Garamond,Futura,Baskerville,Bodoni,Palatino,Courier,Times New Roman,Gill Sans,Optima,Didot]
-44,Social Media Platforms,[Instagram,Twitter,TikTok,LinkedIn,Pinterest,Snapchat,Reddit,YouTube,Tumblr,Mastodon,Threads,BeReal]
-45,Famous Painters,[Picasso,Monet,Rembrandt,Dali,Michelangelo,Raphael,Vermeer,Klimt,Kandinsky,Magritte,Hockney,Basquiat]
-46,Types of Tea,[Green,Black,Oolong,Chamomile,Peppermint,Earl Grey,Matcha,Jasmine,Rooibos,Darjeeling,Hibiscus,Sencha]
-47,Dinosaurs,[T-Rex,Triceratops,Velociraptor,Brachiosaurus,Stegosaurus,Diplodocus,Ankylosaurus,Pterodactyl,Spinosaurus,Allosaurus,Iguanodon,Parasaurolophus]
-48,Math Concepts,[Integral,Derivative,Matrix,Vector,Logarithm,Polynomial,Factorial,Permutation,Combination,Eigenvalue,Gradient,Divergence]
-49,Phobias Triggers,[Heights,Spiders,Dark,Crowds,Water,Fire,Dogs,Snakes,Blood,Flying,Germs,Thunder]
-50,Famous Novels,[Dune,1984,Hamlet,Odyssey,Moby Dick,Jane Eyre,Don Quixote,Ulysses,Lolita,Beloved,Middlemarch,Dracula]
-51,Cooking Methods,[Baking,Frying,Grilling,Steaming,Braising,Roasting,Sauteing,Poaching,Smoking,Fermenting,Blanching,Broiling]
-52,Renewable Energy,[Solar,Wind,Hydro,Geothermal,Tidal,Biomass,Wave,Hydrogen,Biogas,Nuclear,Osmotic,Ambient]
-53,Famous Scientists,[Newton,Einstein,Darwin,Curie,Hawking,Tesla,Faraday,Bohr,Feynman,Heisenberg,Turing,Pasteur]
-54,Constellations,[Orion,Cassiopeia,Andromeda,Perseus,Aquarius,Leo,Scorpius,Gemini,Taurus,Pisces,Virgo,Draco]
-55,Olympic Sports,[Marathon,Decathlon,Pentathlon,Heptathlon,Triathlon,Biathlon,Fencing,Judo,Taekwondo,Archery,Rowing,Equestrian]
-56,Phytoplankton Types,[Diatom,Dinoflagellate,Cyanobacteria,Green Algae,Chrysophyte,Cryptophyte,Raphidophyte,Prochlorophyte,Silicoflagellate,Coccolithophore,Euglenophyte,Xanthophyte]
-57,Photography Terms,[Aperture,Shutter Speed,ISO,Bokeh,Depth of Field,Exposure,Focal Length,Histogram,White Balance,Composition,Lens Flare,Vignette]
-58,Fashion Designers,[Chanel,Dior,Versace,Armani,Gucci,Prada,Valentino,Balenciaga,McQueen,Lagerfeld,Westwood,Miyake]
-59,Types of Pasta,[Spaghetti,Penne,Rigatoni,Linguine,Fettuccine,Tagliatelle,Fusilli,Farfalle,Orecchiette,Gnocchi,Lasagne,Ravioli]
-60,Ancient Civilizations,[Roman,Greek,Egyptian,Mesopotamian,Persian,Mayan,Aztec,Inca,Chinese,Indus,Phoenician,Minoan]
-61,Logical Fallacies,[Strawman,Ad Hominem,Slippery Slope,False Dichotomy,Appeal to Authority,Circular Reasoning,Red Herring,Bandwagon,Hasty Generalization,Equivocation,Whataboutism,Sunk Cost]
-62,Types of Cheese,[Cheddar,Brie,Gouda,Parmesan,Camembert,Mozzarella,Gorgonzola,Gruyere,Feta,Manchego,Emmental,Havarti]
-63,Startup Terms,[Pivot,Runway,Burn Rate,Unicorn,Seed Round,Series A,MVP,Churn,ARR,Valuation,Bootstrap,Acquisition]
-64,Movie Directors,[Spielberg,Kubrick,Tarantino,Nolan,Scorsese,Coppola,Fincher,Hitchcock,Kurosawa,Lynch,Fellini,Bergman]
-65,Sea Vessels,[Galleon,Schooner,Frigate,Brigantine,Clipper,Catamaran,Kayak,Canoe,Dinghy,Trawler,Tanker,Tugboat]
-66,Ancient Wonders,[Colosseum,Pyramids,Parthenon,Stonehenge,Angkor Wat,Machu Picchu,Great Wall,Taj Mahal,Petra,Chichen Itza,Moai,Alhambra]
-67,Brain Parts,[Cortex,Cerebellum,Hippocampus,Amygdala,Thalamus,Hypothalamus,Brainstem,Corpus Callosum,Frontal Lobe,Temporal Lobe,Parietal Lobe,Occipital Lobe]
-68,Types of Bonds,[Ionic,Covalent,Hydrogen,Metallic,Peptide,Disulfide,Van der Waals,Electrostatic,Pi Bond,Sigma Bond,Coordinate,Dipole]
-69,Video Game Genres,[RPG,FPS,RTS,MOBA,Roguelike,Platformer,Sandbox,Survival,Fighting,Puzzle,Simulation,Visual Novel]
-70,Logical Operators,[AND,OR,NOT,XOR,NAND,NOR,XNOR,Implication,Biconditional,Negation,Conjunction,Disjunction]
+1,Electrical Elements,"[AC,DC,Voltage,Watt,Volt,Ampere,Ohm,Resistance,Fuse,Circuit,Capacitor,Transistor]"
+2,Transportation,"[Car,Bike,Scooter,Bus,Train,Aeroplane,Rocket,Subway,Ferry,Helicopter,Tram,Yacht]"
+3,Geometry,"[Triangle,Square,Rectangle,Circle,Hexagon,Octagon,Rhombus,Pentagon,Ellipse,Trapezoid,Parallelogram,Cylinder]"
+4,Fruits,"[Apple,Banana,Mango,Orange,Grape,Kiwi,Peach,Plum,Cherry,Papaya,Pineapple,Watermelon]"
+5,Vegetables,"[Carrot,Broccoli,Spinach,Onion,Potato,Tomato,Cabbage,Lettuce,Beetroot,Cauliflower,Zucchini,Radish]"
+6,Planets and Space,"[Mars,Jupiter,Saturn,Neptune,Mercury,Venus,Uranus,Comet,Asteroid,Nebula,Pulsar,Quasar]"
+7,Music Instruments,"[Piano,Guitar,Violin,Flute,Drums,Trumpet,Cello,Harp,Saxophone,Clarinet,Banjo,Accordion]"
+8,Sports,"[Soccer,Tennis,Rugby,Basketball,Cricket,Volleyball,Badminton,Swimming,Boxing,Golf,Archery,Fencing]"
+9,Programming Languages,"[Python,JavaScript,Java,Ruby,Swift,Kotlin,Rust,Go,TypeScript,PHP,Scala,Haskell]"
+10,Countries,"[France,Japan,Brazil,India,Canada,Germany,Australia,Mexico,Italy,Egypt,Thailand,Argentina]"
+11,Dances,"[Salsa,Tango,Ballet,Waltz,Breakdance,Flamenco,Jive,Rumba,Polka,Foxtrot,Cha-Cha,Bhangra]"
+12,Currencies,"[Dollar,Euro,Yen,Pound,Rupee,Franc,Krona,Peso,Ruble,Dinar,Baht,Dirham]"
+13,Ocean Creatures,"[Shark,Dolphin,Whale,Octopus,Seahorse,Clownfish,Starfish,Jellyfish,Lobster,Crab,Eel,Manta Ray]"
+14,Emotions,"[Joy,Anger,Fear,Sadness,Surprise,Disgust,Love,Envy,Pride,Hope,Guilt,Shame]"
+15,Mythology Gods,"[Zeus,Odin,Thor,Poseidon,Athena,Apollo,Artemis,Hermes,Loki,Ra,Vishnu,Shiva]"
+16,Historical Figures,"[Cleopatra,Napoleon,Caesar,Alexander,Einstein,Darwin,Newton,Shakespeare,Lincoln,Gandhi,Confucius,Columbus]"
+17,Shades of Color,"[Crimson,Cerulean,Magenta,Indigo,Scarlet,Amber,Chartreuse,Vermilion,Turquoise,Sienna,Ochre,Cobalt]"
+18,Trees,"[Oak,Maple,Pine,Birch,Redwood,Bamboo,Cedar,Willow,Mahogany,Eucalyptus,Banyan,Spruce]"
+19,Superpowers,"[Flight,Telepathy,Invisibility,Telekinesis,Time Travel,Healing,Shape-shifting,Speed,Clairvoyance,Duplication,Intangibility,Magnetism]"
+20,Food Dishes,"[Sushi,Tacos,Pizza,Biryani,Ramen,Paella,Croissant,Pho,Moussaka,Kebab,Fondue,Rendang]"
+21,Musical Genres,"[Jazz,Rock,Classical,Hip-Hop,Country,Reggae,Blues,Pop,Metal,Funk,Soul,Electronic]"
+22,Card Games,"[Poker,Blackjack,Rummy,Bridge,Solitaire,Snap,Cribbage,Canasta,Euchre,Spades,Hearts,Gin]"
+23,Board Games,"[Chess,Checkers,Monopoly,Scrabble,Risk,Clue,Battleship,Go,Backgammon,Othello,Dominoes,Mahjong]"
+24,Phobias,"[Arachnophobia,Claustrophobia,Acrophobia,Agoraphobia,Thalassophobia,Nyctophobia,Pyrophobia,Cynophobia,Ophidiophobia,Hemophobia,Aviophobia,Xenophobia]"
+25,Literary Genres,"[Mystery,Romance,Thriller,Fantasy,Horror,Biography,Adventure,Dystopian,Satire,Gothic,Noir,Fable]"
+26,Kitchen Tools,"[Spatula,Whisk,Colander,Ladle,Tongs,Peeler,Zester,Skillet,Wok,Ramekin,Mandoline,Mortar]"
+27,Fashion Items,"[Blazer,Trench Coat,Cardigan,Parka,Kimono,Sari,Kilt,Poncho,Tunic,Sundress,Tuxedo,Caftan]"
+28,Weather Phenomena,"[Tornado,Blizzard,Monsoon,Drought,Hailstorm,Cyclone,Fog,Aurora,Thunderstorm,Avalanche,Sandstorm,Rainbow]"
+29,Chemical Elements,"[Hydrogen,Oxygen,Carbon,Gold,Silver,Iron,Copper,Helium,Nitrogen,Uranium,Platinum,Neon]"
+30,Superheroes,"[Batman,Superman,Spider-Man,Wonder Woman,Iron Man,Captain America,Black Panther,Hulk,Flash,Aquaman,Wolverine,Hawkeye]"
+31,Art Movements,"[Cubism,Surrealism,Impressionism,Baroque,Renaissance,Romanticism,Dadaism,Pop Art,Futurism,Minimalism,Expressionism,Realism]"
+32,Cocktails,"[Mojito,Margarita,Martini,Cosmopolitan,Negroni,Daiquiri,Manhattan,Old Fashioned,Bellini,Sangria,Mimosa,Spritz]"
+33,Scientific Fields,"[Biology,Chemistry,Physics,Astronomy,Psychology,Geology,Ecology,Anthropology,Botany,Neuroscience,Oceanography,Genetics]"
+34,Cartoon Characters,"[Mickey Mouse,Bugs Bunny,Scooby-Doo,Pikachu,Goku,Naruto,SpongeBob,Bart Simpson,Popeye,Daffy Duck,Tweety,Yogi Bear]"
+35,Breakfast Foods,"[Pancakes,Waffles,Omelette,Granola,Bagel,Porridge,French Toast,Frittata,Shakshuka,Crepe,Muesli,Quiche]"
+36,Architectural Styles,"[Gothic,Baroque,Art Deco,Brutalist,Modernist,Victorian,Colonial,Tudor,Mediterranean,Craftsman,Neoclassical,Prairie]"
+37,Types of Clouds,"[Cumulus,Stratus,Cirrus,Nimbus,Cumulonimbus,Altocumulus,Altostratus,Cirrocumulus,Stratocumulus,Cirrostratus,Mammatus,Lenticular]"
+38,Yoga Poses,"[Downward Dog,Warrior,Tree Pose,Cobra,Lotus,Plank,Mountain Pose,Child's Pose,Pigeon,Crow Pose,Bridge,Headstand]"
+39,Dog Breeds,"[Labrador,Poodle,Bulldog,Beagle,Husky,Dachshund,Dalmatian,Chihuahua,Rottweiler,Corgi,Pomeranian,Shih Tzu]"
+40,Cat Breeds,"[Siamese,Persian,Bengal,Maine Coon,Ragdoll,Sphynx,Burmese,Abyssinian,Birman,Scottish Fold,Tonkinese,Manx]"
+41,Gemstones,"[Diamond,Ruby,Emerald,Sapphire,Amethyst,Topaz,Opal,Garnet,Pearl,Aquamarine,Turquoise,Citrine]"
+42,Spices and Herbs,"[Cinnamon,Turmeric,Basil,Oregano,Cumin,Saffron,Cardamom,Paprika,Rosemary,Thyme,Clove,Nutmeg]"
+43,Fonts and Typefaces,"[Arial,Helvetica,Garamond,Futura,Baskerville,Bodoni,Palatino,Courier,Times New Roman,Gill Sans,Optima,Didot]"
+44,Social Media Platforms,"[Instagram,Twitter,TikTok,LinkedIn,Pinterest,Snapchat,Reddit,YouTube,Tumblr,Mastodon,Threads,BeReal]"
+45,Famous Painters,"[Picasso,Monet,Rembrandt,Dali,Michelangelo,Raphael,Vermeer,Klimt,Kandinsky,Magritte,Hockney,Basquiat]"
+46,Types of Tea,"[Green,Black,Oolong,Chamomile,Peppermint,Earl Grey,Matcha,Jasmine,Rooibos,Darjeeling,Hibiscus,Sencha]"
+47,Dinosaurs,"[T-Rex,Triceratops,Velociraptor,Brachiosaurus,Stegosaurus,Diplodocus,Ankylosaurus,Pterodactyl,Spinosaurus,Allosaurus,Iguanodon,Parasaurolophus]"
+48,Math Concepts,"[Integral,Derivative,Matrix,Vector,Logarithm,Polynomial,Factorial,Permutation,Combination,Eigenvalue,Gradient,Divergence]"
+49,Famous Novels,"[Dune,1984,Hamlet,Odyssey,Moby Dick,Jane Eyre,Don Quixote,Ulysses,Lolita,Beloved,Middlemarch,Dracula]"
+50,Cooking Methods,"[Baking,Frying,Grilling,Steaming,Braising,Roasting,Sauteing,Poaching,Smoking,Fermenting,Blanching,Broiling]"
+51,Renewable Energy,"[Solar,Wind,Hydro,Geothermal,Tidal,Biomass,Wave,Hydrogen,Biogas,Nuclear,Osmotic,Ambient]"
+52,Famous Scientists,"[Newton,Einstein,Darwin,Curie,Hawking,Tesla,Faraday,Bohr,Feynman,Heisenberg,Turing,Pasteur]"
+53,Constellations,"[Orion,Cassiopeia,Andromeda,Perseus,Aquarius,Leo,Scorpius,Gemini,Taurus,Pisces,Virgo,Draco]"
+54,Olympic Sports,"[Marathon,Decathlon,Pentathlon,Heptathlon,Triathlon,Biathlon,Fencing,Judo,Taekwondo,Archery,Rowing,Equestrian]"
+55,Photography Terms,"[Aperture,Shutter Speed,ISO,Bokeh,Depth of Field,Exposure,Focal Length,Histogram,White Balance,Composition,Lens Flare,Vignette]"
+56,Fashion Designers,"[Chanel,Dior,Versace,Armani,Gucci,Prada,Valentino,Balenciaga,McQueen,Lagerfeld,Westwood,Miyake]"
+57,Types of Pasta,"[Spaghetti,Penne,Rigatoni,Linguine,Fettuccine,Tagliatelle,Fusilli,Farfalle,Orecchiette,Gnocchi,Lasagne,Ravioli]"
+58,Ancient Civilizations,"[Roman,Greek,Egyptian,Mesopotamian,Persian,Mayan,Aztec,Inca,Chinese,Indus,Phoenician,Minoan]"
+59,Types of Cheese,"[Cheddar,Brie,Gouda,Parmesan,Camembert,Mozzarella,Gorgonzola,Gruyere,Feta,Manchego,Emmental,Havarti]"
+60,Movie Directors,"[Spielberg,Kubrick,Tarantino,Nolan,Scorsese,Coppola,Fincher,Hitchcock,Kurosawa,Lynch,Fellini,Bergman]"
+61,Sea Vessels,"[Galleon,Schooner,Frigate,Brigantine,Clipper,Catamaran,Kayak,Canoe,Dinghy,Trawler,Tanker,Tugboat]"
+62,Ancient Wonders,"[Colosseum,Pyramids,Parthenon,Stonehenge,Angkor Wat,Machu Picchu,Great Wall,Taj Mahal,Petra,Chichen Itza,Moai,Alhambra]"
+63,Brain Parts,"[Cortex,Cerebellum,Hippocampus,Amygdala,Thalamus,Hypothalamus,Brainstem,Corpus Callosum,Frontal Lobe,Temporal Lobe,Parietal Lobe,Occipital Lobe]"
+64,Video Game Genres,"[RPG,FPS,RTS,MOBA,Roguelike,Platformer,Sandbox,Survival,Fighting,Puzzle,Simulation,Visual Novel]"
+65,Logical Operators,"[AND,OR,NOT,XOR,NAND,NOR,XNOR,Implication,Biconditional,Negation,Conjunction,Disjunction]"
+66,Startup Terms,"[Pivot,Runway,Burn Rate,Unicorn,Seed Round,Series A,MVP,Churn,ARR,Valuation,Bootstrap,Acquisition]"
+67,Cocktail Ingredients,"[Lime,Mint,Ice,Bitters,Vermouth,Syrup,Tonic,Soda,Rum,Gin,Vodka,Bourbon]"
+68,Types of Bread,"[Sourdough,Baguette,Ciabatta,Rye,Pumpernickel,Brioche,Focaccia,Naan,Pita,Pretzel,Challah,Croissant]"
+69,European Cities,"[Paris,Rome,Berlin,Madrid,Amsterdam,Vienna,Prague,Lisbon,Athens,Copenhagen,Stockholm,Budapest]"
+70,Asian Cities,"[Tokyo,Shanghai,Mumbai,Seoul,Bangkok,Singapore,Dubai,Istanbul,Jakarta,Beijing,Osaka,Kuala Lumpur]"
