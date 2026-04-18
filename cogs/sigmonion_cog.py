@@ -110,20 +110,55 @@ class SigmonionCog(commands.Cog):
         s = self._games.get(channel_id)
         return s if s and s.status == "active" else None
 
-    def _board_embed(self, session: GameSession, rnd, title: str) -> discord.Embed:
+    def _make_board_embed(self, session: GameSession, rnd) -> discord.Embed:
+        """
+        Build a clean 2-column board embed:
+        - Description: found groups (one per line with colour emoji)
+        - Two inline fields: remaining words split left / right, one word per line
+        """
+        found_count     = len(rnd.found_order)
+        remaining_count = 4 - found_count
+        groups_label    = f"{remaining_count} group{'s' if remaining_count != 1 else ''} to find"
+
         embed = discord.Embed(
-            title=title,
-            description=self.engine.format_board(rnd),
+            title=f"🎮  Round {rnd.round_num} / {session.total_rounds}  —  {groups_label}",
             color=discord.Color.blurple(),
         )
-        embed.set_footer(
-            text=(
-                f"Round {rnd.round_num}/{session.total_rounds}  ·  "
-                f"Groups found: {len(rnd.found_order)}/4  ·  "
-                "Just type 4 letters to guess, e.g.  abcd"
-            )
-        )
+
+        # Found groups section
+        found_text = self.engine.found_groups_text(rnd)
+        if found_text:
+            embed.description = found_text
+
+        # Remaining words in two inline columns
+        left_col, right_col = self.engine.remaining_columns(rnd)
+        if left_col:
+            embed.add_field(name="\u200b", value=left_col,  inline=True)
+            embed.add_field(name="\u200b", value=right_col, inline=True)
+            # Third blank inline field forces 2-col layout on wide screens
+            embed.add_field(name="\u200b", value="\u200b",  inline=True)
+
+        embed.set_footer(text=(
+            f"Round {rnd.round_num}/{session.total_rounds}  ·  "
+            f"{found_count}/4 found  ·  "
+            "Type 4 letters to guess, e.g.  abcd  ·  /sigmonion board to re-pin"
+        ))
         return embed
+
+    async def _repost_board(self, channel: discord.TextChannel, session: GameSession, rnd):
+        """Delete the old board message and post a fresh one at the bottom of chat."""
+        if rnd.board_message_id:
+            try:
+                old = await channel.fetch_message(rnd.board_message_id)
+                await old.delete()
+            except (discord.NotFound, discord.Forbidden):
+                pass
+            rnd.board_message_id = None
+
+        embed = self._make_board_embed(session, rnd)
+        msg   = await channel.send(embed=embed)
+        rnd.board_message_id  = msg.id
+        rnd.board_last_posted = time.time()  # type: ignore[attr-defined]
 
     def _format_scores_inline(self, session: GameSession) -> str:
         if not session.scores:
@@ -150,22 +185,6 @@ class SigmonionCog(commands.Cog):
             )
         return "\n".join(lines) if lines else "*No data*"
 
-    async def _update_board(self, channel: discord.TextChannel, session: GameSession, rnd):
-        """Edit the pinned board message in place."""
-        remaining = 4 - len(rnd.found_order)
-        embed = self._board_embed(
-            session, rnd,
-            f"🎮 Round {rnd.round_num}/{session.total_rounds} — {remaining} group{'s' if remaining != 1 else ''} left",
-        )
-        if rnd.board_message_id:
-            try:
-                msg = await channel.fetch_message(rnd.board_message_id)
-                await msg.edit(embed=embed)
-                return
-            except discord.NotFound:
-                pass
-        msg = await channel.send(embed=embed)
-        rnd.board_message_id = msg.id
 
     async def _persist_game(self, session: GameSession):
         try:
@@ -209,21 +228,20 @@ class SigmonionCog(commands.Cog):
 
     async def _start_next_round(self, channel: discord.TextChannel, session: GameSession):
         session.current_round_num += 1
+        session._msg_since_board = 0  # type: ignore[attr-defined]
         rnd = self.engine.build_round(session.current_round_num)
         session.rounds.append(rnd)
 
-        intro_line = random.choice(_ROUND_INTROS)
-        embed = discord.Embed(
-            title=f"🎮 Round {rnd.round_num}/{session.total_rounds} — Sigmonions",
-            description=(
-                f"*{intro_line}*\n\n"
-                + self.engine.format_board(rnd)
-            ),
-            color=discord.Color.blurple(),
+        # Intro banner (separate from board so it scrolls away naturally)
+        intro = discord.Embed(
+            description=f"*{random.choice(_ROUND_INTROS)}*",
+            color=discord.Color.og_blurple(),
         )
-        embed.set_footer(text="Just type 4 letters in the chat to guess a group, e.g.  abcd")
-        msg = await channel.send(embed=embed)
-        rnd.board_message_id = msg.id
+        intro.set_author(name=f"Round {rnd.round_num} / {session.total_rounds} — Sigmonions")
+        await channel.send(embed=intro)
+
+        # Board as its own message so we can always re-post it at the bottom
+        await self._repost_board(channel, session, rnd)
 
     async def _finish_round(self, channel: discord.TextChannel, session: GameSession, rnd):
         summary = discord.Embed(
@@ -309,6 +327,9 @@ class SigmonionCog(commands.Cog):
 
     # ── on_message guess handler ───────────────────────────────────────────────
 
+    # How many non-guess messages trigger an automatic board re-post
+    _REPOST_THRESHOLD = 10
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
@@ -325,14 +346,22 @@ class SigmonionCog(commands.Cog):
             return
 
         content = message.content.strip().lower().replace(" ", "")
+        channel = message.channel
 
-        # Ignore slash commands and non-guess messages
+        # ── Non-guess chat message → track activity, maybe auto-repost board ──
         if not _is_guess(content):
+            ctr = getattr(session, "_msg_since_board", 0) + 1
+            session._msg_since_board = ctr  # type: ignore[attr-defined]
+            if ctr >= self._REPOST_THRESHOLD:
+                session._msg_since_board = 0  # type: ignore[attr-defined]
+                await self._repost_board(channel, session, rnd)
             return
+
+        # ── It's a guess ──────────────────────────────────────────────────────
+        session._msg_since_board = 0  # reset on any guess  # type: ignore[attr-defined]
 
         user_id  = message.author.id
         username = str(message.author)
-        channel  = message.channel
 
         if not hasattr(session, "_usernames"):
             session._usernames = {}  # type: ignore[attr-defined]
@@ -340,33 +369,29 @@ class SigmonionCog(commands.Cog):
 
         result = self.engine.process_guess(session, user_id, username, content)
 
-        # Hard validation error (already-found letters, duplicate letters, etc.)
+        # Hard validation error (already-found letters, duplicate, etc.)
         if result.get("error") and result["group_idx"] is None:
             await message.add_reaction("⚠️")
-            await channel.send(
-                f"<@{user_id}> ⚠️ {result['error']}",
-                delete_after=8,
-            )
+            await channel.send(f"<@{user_id}> ⚠️ {result['error']}", delete_after=8)
             return
 
+        # ── Wrong guess ───────────────────────────────────────────────────────
         if not result["valid"]:
-            # Check one-away before reacting
             one_away = rnd.check_one_away(content)
-
             await message.add_reaction("❌")
             if one_away:
                 await message.add_reaction("🟡")
 
-            wrong_line = random.choice(_WRONG)
             embed = discord.Embed(
-                title=f"❌ Wrong — {random.choice(_WRONG)}",
+                title=f"❌  {random.choice(_WRONG)}",
                 description=(
-                    f"<@{user_id}> loses **{abs(POINTS_WRONG)} pts**\n"
-                    + (f"\n{random.choice(_ONE_AWAY)}" if one_away else "")
+                    f"<@{user_id}> **−{abs(POINTS_WRONG)} pts**"
+                    + (f"\n\n{random.choice(_ONE_AWAY)}" if one_away else "")
                 ),
                 color=discord.Color.red(),
             )
-            await channel.send(embed=embed, delete_after=12)
+            await channel.send(embed=embed, delete_after=15)
+            # Board unchanged — no repost needed
             return
 
         # ── Correct! ──────────────────────────────────────────────────────────
@@ -379,50 +404,40 @@ class SigmonionCog(commands.Cog):
         streak    = session.correct_streaks.get(user_id, 0)
         find_pos  = len(rnd.found_order)
 
-        flavor = random.choice(_CORRECT)
         extra_lines = []
-
-        # First-find callout
         if find_pos == 1:
             extra_lines.append(random.choice(_FIRST_FIND).format(user=f"<@{user_id}>"))
-
-        # Streak callout (threshold 2+)
         if streak >= 2:
-            streak_msg = random.choice(_STREAK).format(user=f"<@{user_id}>", n=streak)
-            extra_lines.append(streak_msg)
+            extra_lines.append(random.choice(_STREAK).format(user=f"<@{user_id}>", n=streak))
+        if any("perfect" in b.lower() for b in result["breakdown"]):
+            extra_lines.append(f"⭐ **Perfect round!** +{POINTS_PERFECT_ROUND} bonus pts!")
 
         embed = discord.Embed(
-            title=f"{emoji} {flavor} — **{group.category}**",
+            title=f"{emoji}  {random.choice(_CORRECT)}  —  {group.category}",
             description=(
-                f"**{' · '.join(group.words)}**\n\n"
-                f"<@{user_id}> +**{result['points_earned']} pts**   _{breakdown}_"
+                f"> {' · '.join(w.capitalize() for w in group.words)}\n\n"
+                f"<@{user_id}>  **+{result['points_earned']} pts**   _{breakdown}_"
                 + ("\n\n" + "\n".join(extra_lines) if extra_lines else "")
             ),
             color=_score_color(result["points_earned"]),
         )
         await channel.send(embed=embed)
 
-        # Perfect round bonus callout
-        if result.get("breakdown") and any("perfect" in b.lower() for b in result["breakdown"]):
-            await channel.send(
-                f"⭐ <@{user_id}> found ALL three groups — **Perfect Round!** +{POINTS_PERFECT_ROUND} pts",
-            )
-
         if result["round_complete"]:
-            # Auto-reveal 4th group
             auto_idx = result.get("auto_reveal_group")
             if auto_idx is not None:
                 ag = rnd.groups[auto_idx]
                 auto_embed = discord.Embed(
-                    title=f"{GROUP_COLORS[3]} Auto-revealed — **{ag.category}**",
-                    description=f"**{' · '.join(ag.words)}**",
+                    title=f"{GROUP_COLORS[3]}  Auto-revealed  —  {ag.category}",
+                    description=f"> {' · '.join(w.capitalize() for w in ag.words)}",
                     color=discord.Color.purple(),
                 )
                 await channel.send(embed=auto_embed)
             await asyncio.sleep(1)
             await self._finish_round(channel, session, rnd)
         else:
-            await self._update_board(channel, session, rnd)
+            # Board changed → always repost at the bottom
+            await self._repost_board(channel, session, rnd)
 
     # ── /sigmonion play ────────────────────────────────────────────────────────
 
@@ -489,7 +504,7 @@ class SigmonionCog(commands.Cog):
 
     # ── /sigmonion board ───────────────────────────────────────────────────────
 
-    @sigmonion.command(name="board", description="Re-show the current game board")
+    @sigmonion.command(name="board", description="Re-pin the board at the bottom of chat")
     async def board(self, ctx: discord.ApplicationContext):
         session = self._get_session(ctx.channel_id)
         if not session:
@@ -499,12 +514,10 @@ class SigmonionCog(commands.Cog):
         if rnd is None:
             await ctx.respond("No round in progress.", ephemeral=True)
             return
-        remaining = 4 - len(rnd.found_order)
-        embed = self._board_embed(
-            session, rnd,
-            f"🎮 Round {rnd.round_num}/{session.total_rounds} — {remaining} group{'s' if remaining != 1 else ''} left",
-        )
-        await ctx.respond(embed=embed)
+        # Acknowledge the slash command silently, then repost the board
+        await ctx.respond("📌 Refreshing board…", ephemeral=True, delete_after=3)
+        session._msg_since_board = 0  # type: ignore[attr-defined]
+        await self._repost_board(ctx.channel, session, rnd)
 
     # ── /sigmonion scores ──────────────────────────────────────────────────────
 

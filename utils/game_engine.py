@@ -335,38 +335,32 @@ class GameEngine:
 
         return result
 
-    def format_board(self, rnd: RoundState) -> str:
-        """Render the word grid as formatted text for Discord embed description."""
+    def found_groups_text(self, rnd: RoundState) -> str:
+        """One line per found group — shown at the top of every board embed."""
         lines = []
-
-        # Show found groups at top
         for order_pos, gidx in enumerate(rnd.found_order):
             g = rnd.groups[gidx]
             emoji = GROUP_COLORS[order_pos]
-            words_str = "  ·  ".join(w.upper() for w in g.words)
-            lines.append(f"{emoji}  **{g.category.upper()}**")
-            lines.append(f"    {words_str}")
-            lines.append("")
-
-        if lines:
-            lines.append("─" * 36)
-            lines.append("")
-
-        # Remaining words grid
-        remaining = rnd.remaining_letters
-        if remaining:
-            rows = [remaining[i:i+4] for i in range(0, len(remaining), 4)]
-            for row in rows:
-                cells = []
-                for letter in row:
-                    word, _ = rnd.letter_map[letter]
-                    cell = f"`{letter}` {word}"
-                    cells.append(f"{cell:<22}")
-                lines.append("  ".join(cells).rstrip())
-        else:
-            lines.append("*All groups revealed!*")
-
+            words = "  ·  ".join(w.capitalize() for w in g.words)
+            lines.append(f"{emoji}  **{g.category}**\n> {words}")
         return "\n".join(lines)
+
+    def remaining_columns(self, rnd: RoundState) -> tuple[str, str]:
+        """
+        Split remaining words into two roughly equal columns.
+        Returns (left_text, right_text) where each line is  **x**  ›  Word.
+        """
+        rem = rnd.remaining_letters
+        mid = (len(rem) + 1) // 2
+        left  = rem[:mid]
+        right = rem[mid:]
+
+        def col(letters: list[str]) -> str:
+            return "\n".join(
+                f"**{l}** › {rnd.letter_map[l][0]}" for l in letters
+            )
+
+        return col(left), col(right) if right else "\u200b"
 
     def build_round_summary(self, rnd: RoundState, scores_snapshot: dict[int, int]) -> str:
         lines = ["**Round Summary**", ""]
