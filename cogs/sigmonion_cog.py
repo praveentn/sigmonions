@@ -1,6 +1,8 @@
-"""All /sigmonion commands — game, stats, and leaderboard."""
+"""All /sigmonion commands plus on_message guess handler."""
 import asyncio
 import logging
+import random
+import re
 import time
 from datetime import datetime, timezone
 
@@ -31,30 +33,63 @@ MAX_ROUNDS      = 20
 DEFAULT_ROUNDS  = 5
 ROUND_COUNTDOWN = 5
 
+# ── Flavor text pools ─────────────────────────────────────────────────────────
+_CORRECT = [
+    "Nailed it! 🎯", "Big brain energy! 🧠", "You're on fire! 🔥",
+    "That's the one! 💥", "Genius move! 🧩", "Unstoppable! 🚀",
+    "Chef's kiss! 😘", "Dialed in! 📡", "Incredible! ✨", "Too easy! 😎",
+]
+_WRONG = [
+    "Not quite! 😅", "Hmm, think again! 🤔", "Nope! 🙅",
+    "Yikes! Try again! 💀", "So wrong it hurts! 😬",
+    "Nice try… not! 😏", "Back to the drawing board! 🗑️",
+    "Almost! (Just kidding, not even close) 😂", "Keep at it! 💪",
+]
+_ONE_AWAY = [
+    "🟡 **ONE AWAY!** You were SO close — just one word doesn't belong!",
+    "🟡 **One away!** Agonisingly close — swap one letter!",
+    "🟡 **So close!** Three of those four share a group — find the odd one out!",
+]
+_STREAK = [
+    "🔥 **Streak!** {user} is on a roll — {n} in a row!",
+    "🔥 **{n}-streak!** {user} can't be stopped!",
+    "🔥 **Hot streak!** {user} has found {n} groups in a row — is anyone keeping up?",
+]
+_FIRST_FIND = [
+    "⚡ **First find!** {user} spotted it first!",
+    "⚡ **{user} got there first!** Speed bonus incoming!",
+    "⚡ **Quickest draw!** {user} found it before anyone else!",
+]
+_ROUND_INTROS = [
+    "🎯 New round, new groups — good luck!", "🧩 Can you crack the code?",
+    "🔍 Study the board carefully...", "🎲 Let the guessing begin!",
+    "🧠 Brain cells, activate!", "🕵️ The words hold secrets — find them!",
+]
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
-
 def _accuracy(correct: int, wrong: int) -> str:
     total = correct + wrong
     return f"{correct / total * 100:.1f}%" if total else "—"
-
 
 def _fmt_ms(ms: int | None) -> str:
     if ms is None:
         return "—"
     return f"{ms / 1000:.1f}s" if ms >= 1000 else f"{ms}ms"
 
-
 def _score_color(pts: int) -> discord.Color:
-    if pts >= 200:
-        return discord.Color.gold()
-    if pts >= 100:
-        return discord.Color.green()
-    if pts > 0:
-        return discord.Color.blurple()
+    if pts >= 200: return discord.Color.gold()
+    if pts >= 100: return discord.Color.green()
+    if pts > 0:    return discord.Color.blurple()
     return discord.Color.red()
+
+def _is_guess(content: str) -> bool:
+    """True if the message looks like a 4-letter board guess."""
+    c = content.strip().lower().replace(" ", "")
+    return bool(re.fullmatch(r"[a-p]{4}", c))
 
 
 class SigmonionCog(commands.Cog):
@@ -67,19 +102,13 @@ class SigmonionCog(commands.Cog):
     def __init__(self, bot: discord.Bot):
         self.bot    = bot
         self.engine = GameEngine()
-        self._games: dict[int, GameSession] = {}   # channel_id → GameSession
+        self._games: dict[int, GameSession] = {}
 
-    # ── internal helpers ───────────────────────────────────────────────────────
+    # ── Internal helpers ───────────────────────────────────────────────────────
 
     def _get_session(self, channel_id: int) -> GameSession | None:
         s = self._games.get(channel_id)
         return s if s and s.status == "active" else None
-
-    async def _respond(self, ctx: discord.ApplicationContext, **kwargs):
-        if ctx.response.is_done():
-            await ctx.followup.send(**kwargs)
-        else:
-            await ctx.respond(**kwargs)
 
     def _board_embed(self, session: GameSession, rnd, title: str) -> discord.Embed:
         embed = discord.Embed(
@@ -91,7 +120,7 @@ class SigmonionCog(commands.Cog):
             text=(
                 f"Round {rnd.round_num}/{session.total_rounds}  ·  "
                 f"Groups found: {len(rnd.found_order)}/4  ·  "
-                "/sigmonion guess letters:abcd"
+                "Just type 4 letters to guess, e.g.  abcd"
             )
         )
         return embed
@@ -117,11 +146,28 @@ class SigmonionCog(commands.Cog):
             acc     = f"{correct/total*100:.0f}%" if total else "—"
             fastest = session.fastest_ms.get(uid)
             lines.append(
-                f"<@{uid}>: {correct}✅ {wrong}❌ acc={acc} fastest={_fmt_ms(fastest)}"
+                f"<@{uid}>: {correct}✅ {wrong}❌  acc={acc}  fastest={_fmt_ms(fastest)}"
             )
         return "\n".join(lines) if lines else "*No data*"
 
-    async def _persist_game(self, session: GameSession, aborted: bool = False):
+    async def _update_board(self, channel: discord.TextChannel, session: GameSession, rnd):
+        """Edit the pinned board message in place."""
+        remaining = 4 - len(rnd.found_order)
+        embed = self._board_embed(
+            session, rnd,
+            f"🎮 Round {rnd.round_num}/{session.total_rounds} — {remaining} group{'s' if remaining != 1 else ''} left",
+        )
+        if rnd.board_message_id:
+            try:
+                msg = await channel.fetch_message(rnd.board_message_id)
+                await msg.edit(embed=embed)
+                return
+            except discord.NotFound:
+                pass
+        msg = await channel.send(embed=embed)
+        rnd.board_message_id = msg.id
+
+    async def _persist_game(self, session: GameSession):
         try:
             winner_id = session.winner()
             total_pts = sum(session.scores.values())
@@ -140,11 +186,12 @@ class SigmonionCog(commands.Cog):
                 rounds=session.current_round_num,
                 points=max(total_pts, 0),
             )
+            usernames: dict = getattr(session, "_usernames", {})
             for uid, pts in session.scores.items():
                 await upsert_user_after_game(
                     user_id=uid,
                     guild_id=session.guild_id,
-                    username=session._usernames.get(uid, str(uid)),  # type: ignore[attr-defined]
+                    username=usernames.get(uid, str(uid)),
                     game_points=pts,
                     groups_found=session.groups_found_counts.get(uid, 0),
                     correct_guesses=session.correct_counts.get(uid, 0),
@@ -158,28 +205,27 @@ class SigmonionCog(commands.Cog):
         except Exception as exc:
             log.error("Failed to persist game %s: %s", session.game_id, exc, exc_info=True)
 
-    # ── round management ───────────────────────────────────────────────────────
+    # ── Round management ───────────────────────────────────────────────────────
 
     async def _start_next_round(self, channel: discord.TextChannel, session: GameSession):
         session.current_round_num += 1
         rnd = self.engine.build_round(session.current_round_num)
         session.rounds.append(rnd)
 
+        intro_line = random.choice(_ROUND_INTROS)
         embed = discord.Embed(
             title=f"🎮 Round {rnd.round_num}/{session.total_rounds} — Sigmonions",
-            description=self.engine.format_board(rnd),
+            description=(
+                f"*{intro_line}*\n\n"
+                + self.engine.format_board(rnd)
+            ),
             color=discord.Color.blurple(),
         )
-        embed.set_footer(text="Use /sigmonion guess letters:abcd  ·  /sigmonion board to refresh")
+        embed.set_footer(text="Just type 4 letters in the chat to guess a group, e.g.  abcd")
         msg = await channel.send(embed=embed)
         rnd.board_message_id = msg.id
 
-    async def _finish_round(
-        self,
-        channel: discord.TextChannel,
-        session: GameSession,
-        rnd,
-    ):
+    async def _finish_round(self, channel: discord.TextChannel, session: GameSession, rnd):
         summary = discord.Embed(
             title=f"📊 Round {rnd.round_num} Complete!",
             description=self.engine.build_round_summary(rnd, session.scores),
@@ -206,13 +252,25 @@ class SigmonionCog(commands.Cog):
             await asyncio.sleep(2)
             await self._finish_game(channel, session)
         else:
+            # Animated countdown
             cd_msg = await channel.send(
                 embed=discord.Embed(
-                    description=f"⏳ Next round starts in **{ROUND_COUNTDOWN}s**...",
+                    description=f"⏳ Next round in **{ROUND_COUNTDOWN}**...",
                     color=discord.Color.blurple(),
                 )
             )
-            await asyncio.sleep(ROUND_COUNTDOWN)
+            for t in range(ROUND_COUNTDOWN - 1, 0, -1):
+                await asyncio.sleep(1)
+                try:
+                    await cd_msg.edit(
+                        embed=discord.Embed(
+                            description=f"⏳ Next round in **{t}**...",
+                            color=discord.Color.blurple(),
+                        )
+                    )
+                except discord.NotFound:
+                    break
+            await asyncio.sleep(1)
             try:
                 await cd_msg.delete()
             except discord.NotFound:
@@ -236,7 +294,7 @@ class SigmonionCog(commands.Cog):
             lines.append(f"\n🏆 **Winner: <@{winner_id}>** — Congratulations!")
 
         embed = discord.Embed(
-            title="🎉 Game Over!",
+            title="🎉 Game Over — Sigmonions!",
             description="\n".join(lines),
             color=discord.Color.gold(),
         )
@@ -245,8 +303,126 @@ class SigmonionCog(commands.Cog):
             value=self._build_stats_snapshot(session),
             inline=False,
         )
+        embed.set_footer(text="Play again with /sigmonion play  ·  /sigmonion leaderboard")
         await channel.send(embed=embed)
         await self._persist_game(session)
+
+    # ── on_message guess handler ───────────────────────────────────────────────
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+        if not message.guild:
+            return
+
+        session = self._get_session(message.channel.id)
+        if not session:
+            return
+
+        rnd = session.current_round
+        if rnd is None or rnd.is_complete():
+            return
+
+        content = message.content.strip().lower().replace(" ", "")
+
+        # Ignore slash commands and non-guess messages
+        if not _is_guess(content):
+            return
+
+        user_id  = message.author.id
+        username = str(message.author)
+        channel  = message.channel
+
+        if not hasattr(session, "_usernames"):
+            session._usernames = {}  # type: ignore[attr-defined]
+        session._usernames[user_id] = username  # type: ignore[attr-defined]
+
+        result = self.engine.process_guess(session, user_id, username, content)
+
+        # Hard validation error (already-found letters, duplicate letters, etc.)
+        if result.get("error") and result["group_idx"] is None:
+            await message.add_reaction("⚠️")
+            await channel.send(
+                f"<@{user_id}> ⚠️ {result['error']}",
+                delete_after=8,
+            )
+            return
+
+        if not result["valid"]:
+            # Check one-away before reacting
+            one_away = rnd.check_one_away(content)
+
+            await message.add_reaction("❌")
+            if one_away:
+                await message.add_reaction("🟡")
+
+            wrong_line = random.choice(_WRONG)
+            embed = discord.Embed(
+                title=f"❌ Wrong — {random.choice(_WRONG)}",
+                description=(
+                    f"<@{user_id}> loses **{abs(POINTS_WRONG)} pts**\n"
+                    + (f"\n{random.choice(_ONE_AWAY)}" if one_away else "")
+                ),
+                color=discord.Color.red(),
+            )
+            await channel.send(embed=embed, delete_after=12)
+            return
+
+        # ── Correct! ──────────────────────────────────────────────────────────
+        await message.add_reaction("✅")
+
+        group     = rnd.groups[result["group_idx"]]
+        color_pos = len(rnd.found_order) - 1
+        emoji     = GROUP_COLORS[color_pos]
+        breakdown = "  ·  ".join(result["breakdown"])
+        streak    = session.correct_streaks.get(user_id, 0)
+        find_pos  = len(rnd.found_order)
+
+        flavor = random.choice(_CORRECT)
+        extra_lines = []
+
+        # First-find callout
+        if find_pos == 1:
+            extra_lines.append(random.choice(_FIRST_FIND).format(user=f"<@{user_id}>"))
+
+        # Streak callout (threshold 2+)
+        if streak >= 2:
+            streak_msg = random.choice(_STREAK).format(user=f"<@{user_id}>", n=streak)
+            extra_lines.append(streak_msg)
+
+        embed = discord.Embed(
+            title=f"{emoji} {flavor} — **{group.category}**",
+            description=(
+                f"**{' · '.join(group.words)}**\n\n"
+                f"<@{user_id}> +**{result['points_earned']} pts**   _{breakdown}_"
+                + ("\n\n" + "\n".join(extra_lines) if extra_lines else "")
+            ),
+            color=_score_color(result["points_earned"]),
+        )
+        await channel.send(embed=embed)
+
+        # Perfect round bonus callout
+        if result.get("breakdown") and any("perfect" in b.lower() for b in result["breakdown"]):
+            await channel.send(
+                f"⭐ <@{user_id}> found ALL three groups — **Perfect Round!** +{POINTS_PERFECT_ROUND} pts",
+            )
+
+        if result["round_complete"]:
+            # Auto-reveal 4th group
+            auto_idx = result.get("auto_reveal_group")
+            if auto_idx is not None:
+                ag = rnd.groups[auto_idx]
+                auto_embed = discord.Embed(
+                    title=f"{GROUP_COLORS[3]} Auto-revealed — **{ag.category}**",
+                    description=f"**{' · '.join(ag.words)}**",
+                    color=discord.Color.purple(),
+                )
+                await channel.send(embed=auto_embed)
+            await asyncio.sleep(1)
+            await self._finish_round(channel, session, rnd)
+        else:
+            await self._update_board(channel, session, rnd)
 
     # ── /sigmonion play ────────────────────────────────────────────────────────
 
@@ -278,124 +454,38 @@ class SigmonionCog(commands.Cog):
             total_rounds=rounds,
             started_at=_now_iso(),
         )
-        # Attach username cache so persist can look up names
-        session._usernames: dict[int, str] = {}  # type: ignore[attr-defined]
-        session._usernames[ctx.author.id] = str(ctx.author)
+        session._usernames = {ctx.author.id: str(ctx.author)}  # type: ignore[attr-defined]
         self._games[ctx.channel_id] = session
 
         embed = discord.Embed(
-            title="🎮 Sigmonions — Game Starting!",
+            title="🎮 Sigmonions — Starting!",
             description=(
-                f"**{rounds} round{'s' if rounds > 1 else ''}** · Started by <@{ctx.author.id}>\n\n"
-                "Find groups of **4 words** that share a hidden category.\n"
-                "Type `/sigmonion guess letters:abcd` to submit a group.\n\n"
-                f"✅ Correct: **+{POINTS_CORRECT} pts**  "
-                f"❌ Wrong: **{POINTS_WRONG} pts**\n"
-                f"⚡ Speed bonuses · 🔥 Streak bonuses · ⭐ Perfect round: **+{POINTS_PERFECT_ROUND} pts**"
+                f"**{rounds} round{'s' if rounds > 1 else ''}**  ·  "
+                f"Started by <@{ctx.author.id}>\n\n"
+                "**How to play:** Find groups of **4 words** that share a hidden category.\n"
+                "**Just type 4 letters** in chat to guess a group — no slash command needed!\n\n"
+                f"✅ Correct group **+{POINTS_CORRECT} pts**  ·  "
+                f"❌ Wrong guess **{POINTS_WRONG} pts**\n"
+                f"⚡ Speed bonuses  ·  🔥 Streak bonuses  ·  "
+                f"⭐ Perfect round **+{POINTS_PERFECT_ROUND} pts**\n\n"
+                "🟡 **One away!** shows when 3 of 4 words are right — keep hunting!"
             ),
             color=discord.Color.green(),
         )
+        embed.set_footer(text="First round starts in 3 seconds…")
         await ctx.followup.send(embed=embed)
-        await asyncio.sleep(2)
+
+        # Animated "get ready" countdown
+        await asyncio.sleep(1)
+        ready_msg = await ctx.channel.send("**3…**")
+        await asyncio.sleep(1)
+        await ready_msg.edit(content="**3… 2…**")
+        await asyncio.sleep(1)
+        await ready_msg.edit(content="**3… 2… 1… GO! 🚀**")
+        await asyncio.sleep(0.5)
+        await ready_msg.delete()
+
         await self._start_next_round(ctx.channel, session)
-
-    # ── /sigmonion guess ───────────────────────────────────────────────────────
-
-    @sigmonion.command(name="guess", description="Guess 4 letters that form a group (e.g. abcd)")
-    async def guess(
-        self,
-        ctx: discord.ApplicationContext,
-        letters: discord.Option(str, "4 letters from the board, e.g. abcd"),  # type: ignore[valid-type]
-    ):
-        await ctx.defer()
-
-        session = self._get_session(ctx.channel_id)
-        if not session:
-            await ctx.followup.send(
-                "No game is running here. Use `/sigmonion play` to start one.",
-                ephemeral=True,
-            )
-            return
-
-        rnd = session.current_round
-        if rnd is None or rnd.is_complete():
-            await ctx.followup.send("The current round is already complete.", ephemeral=True)
-            return
-
-        user_id  = ctx.author.id
-        username = str(ctx.author)
-        # Cache username for persistence
-        if not hasattr(session, "_usernames"):
-            session._usernames = {}  # type: ignore[attr-defined]
-        session._usernames[user_id] = username  # type: ignore[attr-defined]
-
-        result = self.engine.process_guess(session, user_id, username, letters.strip())
-
-        # Hard validation error
-        if result.get("error") and result["group_idx"] is None:
-            await ctx.followup.send(f"⚠️ {result['error']}", ephemeral=True)
-            return
-
-        channel = ctx.channel
-
-        if not result["valid"]:
-            embed = discord.Embed(
-                title="❌ Wrong grouping!",
-                description=f"**{POINTS_WRONG} pts** deducted from <@{user_id}>",
-                color=discord.Color.red(),
-            )
-            embed.set_footer(text="The words remain on the board — keep trying!")
-            await ctx.followup.send(embed=embed)
-            return
-
-        # Correct guess
-        group     = rnd.groups[result["group_idx"]]
-        color_pos = len(rnd.found_order) - 1
-        emoji     = GROUP_COLORS[color_pos]
-        breakdown = "  ·  ".join(result["breakdown"])
-
-        embed = discord.Embed(
-            title=f"{emoji} Correct! — {group.category}",
-            description=(
-                f"**{', '.join(group.words)}**\n\n"
-                f"<@{user_id}> earned **{result['points_earned']:+} pts**\n"
-                f"_{breakdown}_"
-            ),
-            color=_score_color(result["points_earned"]),
-        )
-        await ctx.followup.send(embed=embed)
-
-        if result["round_complete"]:
-            auto_idx = result["auto_reveal_group"]
-            if auto_idx is not None:
-                ag = rnd.groups[auto_idx]
-                auto_embed = discord.Embed(
-                    title=f"{GROUP_COLORS[3]} Auto-revealed — {ag.category}",
-                    description=f"**{', '.join(ag.words)}**",
-                    color=discord.Color.purple(),
-                )
-                await channel.send(embed=auto_embed)
-            await asyncio.sleep(1)
-            await self._finish_round(channel, session, rnd)
-        else:
-            # Update board in-place
-            remaining = 4 - len(rnd.found_order)
-            updated = discord.Embed(
-                title=f"🎮 Round {rnd.round_num}/{session.total_rounds} — {remaining} group{'s' if remaining != 1 else ''} left",
-                description=self.engine.format_board(rnd),
-                color=discord.Color.blurple(),
-            )
-            updated.set_footer(text="/sigmonion guess letters:abcd  ·  /sigmonion board")
-            if rnd.board_message_id:
-                try:
-                    board_msg = await channel.fetch_message(rnd.board_message_id)
-                    await board_msg.edit(embed=updated)
-                except discord.NotFound:
-                    msg = await channel.send(embed=updated)
-                    rnd.board_message_id = msg.id
-            else:
-                msg = await channel.send(embed=updated)
-                rnd.board_message_id = msg.id
 
     # ── /sigmonion board ───────────────────────────────────────────────────────
 
@@ -429,7 +519,7 @@ class SigmonionCog(commands.Cog):
             color=discord.Color.gold(),
         )
         if not session.scores:
-            embed.description = "*No scores yet — start guessing!*"
+            embed.description = "*No scores yet — type 4 letters to start guessing!*"
         else:
             medals = ["🥇", "🥈", "🥉"]
             lines  = [
@@ -449,7 +539,6 @@ class SigmonionCog(commands.Cog):
         if not session:
             await ctx.respond("No game running here.", ephemeral=True)
             return
-
         is_host  = ctx.author.id == session.started_by
         is_admin = bool(ctx.author.guild_permissions.manage_guild) if ctx.guild else False
         if not (is_host or is_admin):
@@ -471,7 +560,7 @@ class SigmonionCog(commands.Cog):
                 inline=False,
             )
         await ctx.respond(embed=embed)
-        await self._persist_game(session, aborted=True)
+        await self._persist_game(session)
 
     # ── /sigmonion help ────────────────────────────────────────────────────────
 
@@ -487,10 +576,19 @@ class SigmonionCog(commands.Cog):
             inline=False,
         )
         embed.add_field(
+            name="Guessing",
+            value=(
+                "**Just type 4 letters** directly in chat — no slash command needed!\n"
+                "e.g. if you think `a`, `e`, `i`, `o` belong together, type `aeio`\n\n"
+                "🟡 **One away!** appears when 3 of your 4 words are correct.\n"
+                "✅ Correct  ·  ❌ Wrong  ·  🟡 One away"
+            ),
+            inline=False,
+        )
+        embed.add_field(
             name="Commands",
             value=(
                 "`/sigmonion play [rounds]` — Start a game (default 5, max 20)\n"
-                "`/sigmonion guess letters:abcd` — Submit a 4-letter group guess\n"
                 "`/sigmonion board` — Re-display the board\n"
                 "`/sigmonion scores` — Current game scores\n"
                 "`/sigmonion stop` — End the game (host/admin)\n"
@@ -503,7 +601,7 @@ class SigmonionCog(commands.Cog):
         embed.add_field(
             name="Scoring",
             value=(
-                f"✅ Correct group **+{POINTS_CORRECT}**  ·  ❌ Wrong guess **{POINTS_WRONG}**\n"
+                f"✅ Correct group **+{POINTS_CORRECT}**  ·  ❌ Wrong **{POINTS_WRONG}**\n"
                 "⚡ 1st to find: **+50**  ·  2nd: **+30**  ·  3rd: **+10**\n"
                 "🔥 Streak (2/3/4+): **+20/+40/+60** per correct\n"
                 f"⭐ Perfect round (all 3 groups): **+{POINTS_PERFECT_ROUND}**"
@@ -541,10 +639,10 @@ class SigmonionCog(commands.Cog):
             )
             return
 
-        correct  = data["correct_guesses"]
-        wrong    = data["wrong_guesses"]
-        avg_pts  = data["total_points"] // max(data["games_played"], 1)
-        gpg      = data["groups_found"] / max(data["rounds_played"], 1)
+        correct = data["correct_guesses"]
+        wrong   = data["wrong_guesses"]
+        avg_pts = data["total_points"] // max(data["games_played"], 1)
+        gpg     = data["groups_found"] / max(data["rounds_played"], 1)
 
         embed = discord.Embed(
             title=f"📊 Stats — {target.display_name}",
@@ -635,19 +733,15 @@ class SigmonionCog(commands.Cog):
         medals = ["🥇", "🥈", "🥉"]
         lines  = []
         for i, r in enumerate(rows[:10]):
-            medal = medals[i] if i < 3 else f"`{i+1}.`"
-            acc   = _accuracy(r["correct_guesses"], r["wrong_guesses"])
-            name  = r["username"] or f"Player {i+1}"
-            if sort_by == "accuracy":
-                metric = acc
-            elif sort_by == "groups_found":
-                metric = f"{r['groups_found']} groups"
-            elif sort_by == "best_game":
-                metric = f"{r['best_game_points']:+} pts"
-            elif sort_by == "streak":
-                metric = f"{r['best_streak']} 🔥"
-            else:
-                metric = f"{r['total_points']:+} pts"
+            medal  = medals[i] if i < 3 else f"`{i+1}.`"
+            acc    = _accuracy(r["correct_guesses"], r["wrong_guesses"])
+            name   = r["username"] or f"Player {i+1}"
+            metric = {
+                "accuracy":     acc,
+                "groups_found": f"{r['groups_found']} groups",
+                "best_game":    f"{r['best_game_points']:+} pts",
+                "streak":       f"{r['best_streak']} 🔥",
+            }.get(sort_by, f"{r['total_points']:+} pts")
             lines.append(f"{medal} **{name}** — {metric}  _(acc {acc})_")
         embed.description = "\n".join(lines)
 
@@ -710,27 +804,22 @@ class SigmonionCog(commands.Cog):
         )
 
         if rows:
-            insights = []
             top_pts  = max(rows, key=lambda r: r["total_points"])
-            top_acc  = max(
-                rows,
-                key=lambda r: r["correct_guesses"] / max(r["correct_guesses"] + r["wrong_guesses"], 1),
-            )
+            top_acc  = max(rows, key=lambda r: r["correct_guesses"] / max(r["correct_guesses"] + r["wrong_guesses"], 1))
             top_str  = max(rows, key=lambda r: r["best_streak"])
             top_perf = max(rows, key=lambda r: r["perfect_rounds"])
-            top_fast = min(
-                (r for r in rows if r["fastest_group_ms"] is not None),  # type: ignore[arg-type]
-                key=lambda r: r.get("fastest_group_ms") or 999999,
-                default=None,
-            )
+            fast_rows = [r for r in rows if r.get("fastest_group_ms") is not None]
+            top_fast = min(fast_rows, key=lambda r: r["fastest_group_ms"], default=None)
 
-            insights.append(f"🏆 Top scorer: **{top_pts['username']}** ({top_pts['total_points']:+} pts)")
-            insights.append(f"🎯 Most accurate: **{top_acc['username']}** ({_accuracy(top_acc['correct_guesses'], top_acc['wrong_guesses'])})")
-            insights.append(f"🔥 Longest streak: **{top_str['username']}** ({top_str['best_streak']} games)")
+            insights = [
+                f"🏆 Top scorer: **{top_pts['username']}** ({top_pts['total_points']:+} pts)",
+                f"🎯 Most accurate: **{top_acc['username']}** ({_accuracy(top_acc['correct_guesses'], top_acc['wrong_guesses'])})",
+                f"🔥 Longest streak: **{top_str['username']}** ({top_str['best_streak']} games)",
+            ]
             if top_perf["perfect_rounds"] > 0:
-                insights.append(f"⭐ Perfect rounds king: **{top_perf['username']}** ({top_perf['perfect_rounds']})")
+                insights.append(f"⭐ Perfect round king: **{top_perf['username']}** ({top_perf['perfect_rounds']})")
             if top_fast:
-                insights.append(f"⚡ Speed demon: **{top_fast['username']}** (fastest group: {_fmt_ms(top_fast.get('fastest_group_ms'))})")
+                insights.append(f"⚡ Speed demon: **{top_fast['username']}** (fastest: {_fmt_ms(top_fast.get('fastest_group_ms'))})")
 
             embed.add_field(name="🔍 Insights", value="\n".join(insights), inline=False)
 

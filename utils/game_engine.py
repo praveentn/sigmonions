@@ -110,6 +110,19 @@ class RoundState:
 
         return False, "", None   # valid letters but wrong grouping
 
+    def check_one_away(self, letters: str) -> bool:
+        """True if exactly 3 of 4 guessed letters belong to the same unfound group."""
+        letters = letters.lower().strip()
+        if len(letters) != 4:
+            return False
+        guessed = set(letters)
+        for idx, group in enumerate(self.groups):
+            if idx in self.found_order:
+                continue
+            if len(set(group.letters) & guessed) == 3:
+                return True
+        return False
+
 
 @dataclass
 class GameSession:
