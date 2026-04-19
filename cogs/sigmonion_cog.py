@@ -455,6 +455,28 @@ class SigmonionCog(commands.Cog):
     ):
         await ctx.defer()
 
+        # Verify the bot can actually send messages in this channel before starting.
+        # Slash commands arrive via interaction webhooks (no channel perms needed),
+        # but the game posts regular messages — requires Send Messages + Embed Links.
+        me = ctx.guild.me if ctx.guild else None
+        if me:
+            perms = ctx.channel.permissions_for(me)
+            missing = []
+            if not perms.send_messages:
+                missing.append("Send Messages")
+            if not perms.embed_links:
+                missing.append("Embed Links")
+            if not perms.add_reactions:
+                missing.append("Add Reactions")
+            if missing:
+                await ctx.followup.send(
+                    f"⚠️ I'm missing the following permissions in this channel: "
+                    f"**{', '.join(missing)}**\n"
+                    "Please ask a server admin to grant me these permissions, then try again.",
+                    ephemeral=True,
+                )
+                return
+
         if self._get_session(ctx.channel_id):
             await ctx.followup.send(
                 "⚠️ A game is already running here. Use `/sigmonion stop` to end it first.",
