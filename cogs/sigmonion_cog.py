@@ -106,6 +106,16 @@ class SigmonionCog(commands.Cog):
 
     # ── Internal helpers ───────────────────────────────────────────────────────
 
+    async def _guild_only(self, ctx: discord.ApplicationContext) -> bool:
+        """Respond with an error and return False when called outside a guild."""
+        if ctx.guild is None:
+            await ctx.respond(
+                "Sigmonions can only be used inside a server, not in DMs.",
+                ephemeral=True,
+            )
+            return False
+        return True
+
     def _get_session(self, channel_id: int) -> GameSession | None:
         s = self._games.get(channel_id)
         return s if s and s.status == "active" else None
@@ -293,9 +303,13 @@ class SigmonionCog(commands.Cog):
                 await cd_msg.delete()
             except discord.NotFound:
                 pass
+            if session.status != "active":
+                return
             await self._start_next_round(channel, session)
 
     async def _finish_game(self, channel: discord.TextChannel, session: GameSession):
+        if session.status != "active":
+            return
         session.status = "completed"
         self._games.pop(channel.id, None)
 
@@ -453,12 +467,13 @@ class SigmonionCog(commands.Cog):
             default=DEFAULT_ROUNDS,
         ) = DEFAULT_ROUNDS,
     ):
+        if not await self._guild_only(ctx):
+            return
         await ctx.defer()
 
-        # Verify the bot can actually send messages in this channel before starting.
         # Slash commands arrive via interaction webhooks (no channel perms needed),
         # but the game posts regular messages — requires Send Messages + Embed Links.
-        me = ctx.guild.me if ctx.guild else None
+        me = ctx.guild.me
         if me:
             perms = ctx.channel.permissions_for(me)
             missing = []
@@ -528,6 +543,8 @@ class SigmonionCog(commands.Cog):
 
     @sigmonion.command(name="board", description="Re-pin the board at the bottom of chat")
     async def board(self, ctx: discord.ApplicationContext):
+        if not await self._guild_only(ctx):
+            return
         session = self._get_session(ctx.channel_id)
         if not session:
             await ctx.respond("No game running here. Start one with `/sigmonion play`.", ephemeral=True)
@@ -545,6 +562,8 @@ class SigmonionCog(commands.Cog):
 
     @sigmonion.command(name="scores", description="Show current game scores")
     async def scores(self, ctx: discord.ApplicationContext):
+        if not await self._guild_only(ctx):
+            return
         session = self._get_session(ctx.channel_id)
         if not session:
             await ctx.respond("No game running here.", ephemeral=True)
@@ -570,6 +589,8 @@ class SigmonionCog(commands.Cog):
 
     @sigmonion.command(name="stop", description="Stop the current game (host or admin only)")
     async def stop(self, ctx: discord.ApplicationContext):
+        if not await self._guild_only(ctx):
+            return
         session = self._get_session(ctx.channel_id)
         if not session:
             await ctx.respond("No game running here.", ephemeral=True)
@@ -601,6 +622,8 @@ class SigmonionCog(commands.Cog):
 
     @sigmonion.command(name="help", description="How to play Sigmonions")
     async def help(self, ctx: discord.ApplicationContext):
+        if not await self._guild_only(ctx):
+            return
         embed = discord.Embed(
             title="🎮 How to Play Sigmonions",
             color=discord.Color.blurple(),
@@ -662,6 +685,8 @@ class SigmonionCog(commands.Cog):
             required=False,
         ) = None,
     ):
+        if not await self._guild_only(ctx):
+            return
         await ctx.defer()
         target = user or ctx.author
         data   = await get_user_stats(target.id, ctx.guild_id, str(target))
@@ -733,6 +758,8 @@ class SigmonionCog(commands.Cog):
             default="total_points",
         ) = "total_points",
     ):
+        if not await self._guild_only(ctx):
+            return
         await ctx.defer()
         rows = await get_leaderboard(ctx.guild_id, limit=15)
         if not rows:
@@ -796,6 +823,8 @@ class SigmonionCog(commands.Cog):
 
     @sigmonion.command(name="server", description="Server-wide Sigmonions stats")
     async def server(self, ctx: discord.ApplicationContext):
+        if not await self._guild_only(ctx):
+            return
         await ctx.defer()
         data = await get_server_stats(ctx.guild_id)
         rows = await get_leaderboard(ctx.guild_id, limit=100)

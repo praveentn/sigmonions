@@ -68,6 +68,14 @@ async def init_db():
         await db.commit()
 
 
+_ALLOWED_USER_STAT_COLS: frozenset[str] = frozenset({
+    "username", "games_played", "rounds_played", "groups_found",
+    "correct_guesses", "wrong_guesses", "total_points", "best_game_points",
+    "current_streak", "best_streak", "perfect_rounds", "first_finds",
+    "fastest_group_ms", "last_played",
+})
+
+
 async def get_user_stats(user_id: int, guild_id: int, username: str = None) -> dict:
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
@@ -95,6 +103,9 @@ async def get_user_stats(user_id: int, guild_id: int, username: str = None) -> d
 async def update_user_stats(user_id: int, guild_id: int, **kwargs):
     if not kwargs:
         return
+    unknown = set(kwargs) - _ALLOWED_USER_STAT_COLS
+    if unknown:
+        raise ValueError(f"update_user_stats: unknown column(s): {unknown}")
     sets = ", ".join(f"{k}=?" for k in kwargs)
     vals = list(kwargs.values()) + [user_id, guild_id]
     async with aiosqlite.connect(DB_PATH) as db:
