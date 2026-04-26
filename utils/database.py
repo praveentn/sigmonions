@@ -33,6 +33,14 @@ async def init_db():
     _pool = await asyncpg.create_pool(_pg_url(), min_size=1, max_size=5)
     async with _pool.acquire() as conn:
         await conn.execute("""
+            CREATE TABLE IF NOT EXISTS guild_settings (
+                guild_id         BIGINT PRIMARY KEY,
+                timezone         TEXT   NOT NULL DEFAULT 'UTC',
+                reminder_channel BIGINT,
+                last_reminder    TEXT
+            )
+        """)
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS user_stats (
                 user_id          BIGINT  NOT NULL,
                 guild_id         BIGINT  NOT NULL,
@@ -271,3 +279,61 @@ async def increment_server_stats(guild_id: int, rounds: int = 0, points: int = 0
                  last_active          = $4""",
             guild_id, rounds, points, now,
         )
+
+
+# ── Guild settings (reminders) ─────────────────────────────────────────────────
+
+async def get_guild_settings(guild_id: int) -> dict:
+    async with _db().acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM guild_settings WHERE guild_id=$1", guild_id,
+        )
+        if row is None:
+            await conn.execute(
+                "INSERT INTO guild_settings (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING",
+                guild_id,
+            )
+            row = await conn.fetchrow(
+                "SELECT * FROM guild_settings WHERE guild_id=$1", guild_id,
+            )
+    return dict(row)
+
+
+async def set_guild_timezone(guild_id: int, tz: str) -> None:
+    async with _db().acquire() as conn:
+        await conn.execute(
+            """INSERT INTO guild_settings (guild_id, timezone)
+               VALUES ($1, $2)
+               ON CONFLICT (guild_id) DO UPDATE SET timezone = EXCLUDED.timezone""",
+            guild_id, tz,
+        )
+
+
+async def set_reminder_channel(guild_id: int, channel_id: int | None) -> None:
+    async with _db().acquire() as conn:
+        await conn.execute(
+            """INSERT INTO guild_settings (guild_id, reminder_channel)
+               VALUES ($1, $2)
+               ON CONFLICT (guild_id) DO UPDATE SET reminder_channel = EXCLUDED.reminder_channel""",
+            guild_id, channel_id,
+        )
+
+
+async def mark_reminder_sent(guild_id: int, date_str: str) -> None:
+    async with _db().acquire() as conn:
+        await conn.execute(
+            """INSERT INTO guild_settings (guild_id, last_reminder)
+               VALUES ($1, $2)
+               ON CONFLICT (guild_id) DO UPDATE SET last_reminder = EXCLUDED.last_reminder""",
+            guild_id, date_str,
+        )
+
+
+async def get_active_player_ids(guild_id: int) -> list[int]:
+    """Return user_ids of everyone who has played at least one game in this guild."""
+    async with _db().acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT user_id FROM user_stats WHERE guild_id=$1 AND games_played > 0",
+            guild_id,
+        )
+    return [r["user_id"] for r in rows]

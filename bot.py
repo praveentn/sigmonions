@@ -39,6 +39,7 @@ bot = discord.Bot(intents=intents, debug_guilds=DEBUG_GUILDS)
 
 COGS = [
     "cogs.sigmonion_cog",
+    "cogs.reminder_cog",
 ]
 
 # ── Status dashboard ──────────────────────────────────────────────────────────
