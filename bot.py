@@ -36,14 +36,7 @@ intents                 = discord.Intents.default()
 intents.message_content = True
 
 
-class SigmonionsBot(discord.Bot):
-    async def setup_hook(self) -> None:
-        from utils.database import init_db
-        await init_db()
-        log.info("DB initialised.")
-
-
-bot = SigmonionsBot(intents=intents, debug_guilds=DEBUG_GUILDS)
+bot = discord.Bot(intents=intents, debug_guilds=DEBUG_GUILDS)
 
 COGS = [
     "cogs.sigmonion_cog",
@@ -259,6 +252,9 @@ async def main():
         )
         await asyncio.Event().wait()
     else:
+        from utils.database import init_db
+        await init_db()
+        log.info("DB initialised.")
         await bot.start(TOKEN)
 
 
