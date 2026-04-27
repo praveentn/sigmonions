@@ -16,6 +16,7 @@ from utils.database import (
     get_active_player_ids,
     get_guild_settings,
     get_leaderboard,
+    get_user_stats,
     mark_reminder_sent,
     set_guild_timezone,
     set_reminder_channel,
@@ -44,6 +45,122 @@ _OPENERS = [
 
 def _opener_for(day_of_year: int) -> str:
     return _OPENERS[day_of_year % len(_OPENERS)]
+
+
+# ── Interactive buttons ────────────────────────────────────────────────────────
+
+class ReminderView(discord.ui.View):
+    """Persistent button row attached to the daily reminder embed."""
+
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(
+        label="▶  Play Now",
+        style=discord.ButtonStyle.green,
+        custom_id="reminder:play",
+        row=0,
+    )
+    async def play_btn(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await interaction.response.send_message(
+            "## 🎮  Start today's game!\n"
+            "Type **`/sigmonion play`** in any channel to begin.\n\n"
+            "Find four hidden groups of four words — faster, fewer guesses = more points. Good luck!",
+            ephemeral=True,
+        )
+
+    @discord.ui.button(
+        label="🏆  Leaderboard",
+        style=discord.ButtonStyle.blurple,
+        custom_id="reminder:leaderboard",
+        row=0,
+    )
+    async def leaderboard_btn(self, button: discord.ui.Button, interaction: discord.Interaction):
+        leaderboard = await get_leaderboard(interaction.guild_id, limit=10)
+        if not leaderboard:
+            await interaction.response.send_message(
+                "No scores yet — be the first to play with `/sigmonion play`! 🎮",
+                ephemeral=True,
+            )
+            return
+
+        medals = ["🥇", "🥈", "🥉"]
+        lines = []
+        for i, row in enumerate(leaderboard):
+            prefix = medals[i] if i < 3 else f"`{i + 1}.`"
+            lines.append(
+                f"{prefix} **{row['username']}** — {row['total_points']:+} pts"
+                f"  ·  {row['games_played']} games"
+            )
+
+        embed = discord.Embed(
+            title="🏆  Sigmonions Leaderboard",
+            description="\n".join(lines),
+            color=discord.Color.gold(),
+        )
+        embed.set_footer(text="Play /sigmonion play to climb the ranks!")
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(
+        label="📊  My Stats",
+        style=discord.ButtonStyle.gray,
+        custom_id="reminder:stats",
+        row=0,
+    )
+    async def stats_btn(self, button: discord.ui.Button, interaction: discord.Interaction):
+        stats = await get_user_stats(interaction.user.id, interaction.guild_id)
+        if stats["games_played"] == 0:
+            await interaction.response.send_message(
+                "You haven't played yet! Type `/sigmonion play` to get started. 🎮",
+                ephemeral=True,
+            )
+            return
+
+        embed = discord.Embed(
+            title=f"📊  Stats for {interaction.user.display_name}",
+            color=discord.Color.blurple(),
+        )
+        embed.add_field(name="Games Played",   value=str(stats["games_played"]),          inline=True)
+        embed.add_field(name="Total Points",   value=f"{stats['total_points']:+}",         inline=True)
+        embed.add_field(name="Best Game",      value=f"{stats['best_game_points']:+} pts", inline=True)
+        embed.add_field(name="Current Streak", value=f"🔥 {stats['current_streak']}",      inline=True)
+        embed.add_field(name="Best Streak",    value=f"🏅 {stats['best_streak']}",         inline=True)
+        embed.add_field(name="Groups Found",   value=str(stats["groups_found"]),           inline=True)
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @discord.ui.button(
+        label="❓  How to Play",
+        style=discord.ButtonStyle.gray,
+        custom_id="reminder:howtoplay",
+        row=0,
+    )
+    async def howtoplay_btn(self, button: discord.ui.Button, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="❓  How to Play Sigmonions",
+            color=discord.Color.from_rgb(255, 165, 0),
+        )
+        embed.add_field(
+            name="🎯  Goal",
+            value="Find four hidden groups of four words. Each group shares a secret category.",
+            inline=False,
+        )
+        embed.add_field(
+            name="🕹️  Commands",
+            value=(
+                "`/sigmonion play` — Start a new game\n"
+                "`/sigmonion board` — Re-display the current board\n"
+                "`/sigmonion leaderboard` — View the full leaderboard\n"
+                "`/sigmonion stats` — View your personal stats\n"
+                "`/sigmonion help` — Full help guide"
+            ),
+            inline=False,
+        )
+        embed.add_field(
+            name="⚡  Scoring",
+            value="Faster guesses and fewer wrong answers earn more bonus points.",
+            inline=False,
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 # ── Pagination helper ──────────────────────────────────────────────────────────
@@ -84,9 +201,7 @@ def _build_reminder_embed(
     if leaderboard:
         medals = ["🥇", "🥈", "🥉"]
         lb_lines = [
-            f"{medals[i]} <@{r['username']}> — **{r['total_points']:+} pts**"
-            if False   # we only have username strings, not IDs from leaderboard
-            else f"{medals[i]} **{r['username']}** — {r['total_points']:+} pts"
+            f"{medals[i]} **{r['username']}** — {r['total_points']:+} pts"
             for i, r in enumerate(leaderboard[:3])
         ]
         embed.add_field(
@@ -94,14 +209,6 @@ def _build_reminder_embed(
             value="\n".join(lb_lines) if lb_lines else "*No scores yet — be the first!*",
             inline=True,
         )
-
-    # CTA
-    embed.add_field(
-        name="🎮  Ready to play?",
-        value="Type `/sigmonion play` in any channel to start today's game!\n"
-              "Find four hidden groups of four words — faster guesses earn bonus points.",
-        inline=False,
-    )
 
     embed.set_footer(
         text=f"Daily reminder · {now_local.strftime('%A, %d %B %Y')} · {tz_name} time"
@@ -121,6 +228,10 @@ class ReminderCog(commands.Cog):
     def __init__(self, bot: discord.Bot):
         self.bot = bot
         self._daily_tick.start()
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        self.bot.add_view(ReminderView())
 
     def cog_unload(self):
         self._daily_tick.cancel()
@@ -197,7 +308,7 @@ class ReminderCog(commands.Cog):
         player_ids  = await get_active_player_ids(guild.id)
 
         embed = _build_reminder_embed(now_local, fact, leaderboard)
-        await channel.send(embed=embed)
+        await channel.send(embed=embed, view=ReminderView())
 
         if not player_ids:
             return
