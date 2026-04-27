@@ -330,11 +330,7 @@ async def mark_reminder_sent(guild_id: int, date_str: str) -> None:
 
 
 async def get_active_player_ids(guild_id: int) -> list[int]:
-    """Return user_ids of ALL players who have ever played at least one game in this guild.
-
-    This is intentionally all-time, not filtered by recent activity, so the daily
-    reminder tags every member who has ever played — not just those who played yesterday.
-    """
+    """Return user_ids of everyone who has played at least one game in this guild."""
     async with _db().acquire() as conn:
         rows = await conn.fetch(
             "SELECT user_id FROM user_stats WHERE guild_id=$1 AND games_played > 0",
