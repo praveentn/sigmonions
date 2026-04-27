@@ -35,7 +35,15 @@ asyncio.set_event_loop(asyncio.new_event_loop())
 intents                 = discord.Intents.default()
 intents.message_content = True
 
-bot = discord.Bot(intents=intents, debug_guilds=DEBUG_GUILDS)
+
+class SigmonionsBot(discord.Bot):
+    async def setup_hook(self) -> None:
+        from utils.database import init_db
+        await init_db()
+        log.info("DB initialised.")
+
+
+bot = SigmonionsBot(intents=intents, debug_guilds=DEBUG_GUILDS)
 
 COGS = [
     "cogs.sigmonion_cog",
@@ -177,10 +185,6 @@ async def on_ready():
         return
 
     _ready_fired = True
-
-    from utils.database import init_db
-    await init_db()
-    log.info("DB initialised.")
 
     try:
         await bot.sync_commands()
