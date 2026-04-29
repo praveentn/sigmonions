@@ -4,6 +4,7 @@ Daily reminder engine for Sigmonions.
 Fires once per guild per day at 13:00 (1 PM) in that guild's configured
 timezone.  Admins configure it with /remind channel / /remind timezone.
 """
+import asyncio
 import logging
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -12,6 +13,12 @@ import discord
 from discord.ext import commands, tasks
 
 from utils.categoryhistory import get_fact_for
+from utils.game_engine import (
+    GameSession,
+    POINTS_CORRECT,
+    POINTS_WRONG,
+    POINTS_PERFECT_ROUND,
+)
 from utils.database import (
     get_active_player_ids,
     get_guild_settings,
@@ -62,12 +69,59 @@ class ReminderView(discord.ui.View):
         row=0,
     )
     async def play_btn(self, button: discord.ui.Button, interaction: discord.Interaction):
-        await interaction.response.send_message(
-            "## 🎮  Start today's game!\n"
-            "Type **`/sigmonion play`** in any channel to begin.\n\n"
-            "Find four hidden groups of four words — faster, fewer guesses = more points. Good luck!",
-            ephemeral=True,
+        cog = interaction.client.get_cog("SigmonionCog")
+        if cog is None:
+            await interaction.response.send_message(
+                "⚠️ Game module unavailable right now. Try `/sigmonion play` instead.",
+                ephemeral=True,
+            )
+            return
+
+        channel = interaction.channel
+
+        if cog._get_session(channel.id):
+            await interaction.response.send_message(
+                "⚠️ A game is already running in this channel! Use `/sigmonion stop` to end it first.",
+                ephemeral=True,
+            )
+            return
+
+        session = GameSession(
+            channel_id=channel.id,
+            guild_id=interaction.guild_id,
+            started_by=interaction.user.id,
+            total_rounds=1,
+            started_at=datetime.now(timezone.utc).isoformat(),
         )
+        session._usernames = {interaction.user.id: str(interaction.user)}  # type: ignore[attr-defined]
+        cog._games[channel.id] = session
+
+        embed = discord.Embed(
+            title="🎮 Sigmonions — Starting!",
+            description=(
+                f"**1 round**  ·  Started by <@{interaction.user.id}>\n\n"
+                "**How to play:** Find groups of **4 words** that share a hidden category.\n"
+                "**Just type 4 letters** in chat to guess — no slash command needed!\n\n"
+                f"✅ Correct group **+{POINTS_CORRECT} pts**  ·  "
+                f"❌ Wrong guess **{POINTS_WRONG} pts**\n"
+                f"⚡ Speed bonuses  ·  🔥 Streak bonuses  ·  "
+                f"⭐ Perfect round **+{POINTS_PERFECT_ROUND} pts**"
+            ),
+            color=discord.Color.green(),
+        )
+        embed.set_footer(text="Round starts in 3 seconds…")
+        await interaction.response.send_message(embed=embed)
+
+        await asyncio.sleep(1)
+        ready_msg = await channel.send("**3…**")
+        await asyncio.sleep(1)
+        await ready_msg.edit(content="**3… 2…**")
+        await asyncio.sleep(1)
+        await ready_msg.edit(content="**3… 2… 1… GO! 🚀**")
+        await asyncio.sleep(0.5)
+        await ready_msg.delete()
+
+        await cog._start_next_round(channel, session)
 
     @discord.ui.button(
         label="🏆  Leaderboard",
