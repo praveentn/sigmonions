@@ -144,15 +144,18 @@ async def _health_json(request):
 
 
 async def _run_web_server():
+    from admin.app import setup_admin_routes
     app = web.Application()
     app.router.add_get("/",       _status_page)
     app.router.add_get("/health", _health_json)
+    setup_admin_routes(app, bot=bot)
     runner = web.AppRunner(app, access_log=None)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
     log.info("Status page  →  http://localhost:%d/", PORT)
     log.info("Health JSON  →  http://localhost:%d/health", PORT)
+    log.info("Admin panel  →  http://localhost:%d/admin", PORT)
 
 
 # ── Bot events ────────────────────────────────────────────────────────────────

@@ -171,8 +171,12 @@ class GameEngine:
     @property
     def categories(self) -> dict[str, list[str]]:
         if self._cats is None:
-            self._cats = load_categories()
+            self._cats = load_categories()  # CSV fallback (dev / first boot)
         return self._cats
+
+    def set_categories(self, cats: dict[str, list[str]]) -> None:
+        """Inject categories loaded from the DB (replaces CSV cache)."""
+        self._cats = cats
 
     def reload_categories(self):
         self._cats = load_categories()

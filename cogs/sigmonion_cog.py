@@ -17,6 +17,7 @@ from utils.database import (
     save_game_history,
     upsert_user_after_game,
     increment_server_stats,
+    get_all_categories,
 )
 from utils.game_engine import (
     GameEngine,
@@ -92,6 +93,111 @@ def _is_guess(content: str) -> bool:
     return bool(re.fullmatch(r"[a-p]{4}", c))
 
 
+class GameOverView(discord.ui.View):
+    """Persistent action buttons shown at the end of every game."""
+
+    def __init__(self, cog: "SigmonionCog", guild_id: int):
+        super().__init__(timeout=600)
+        self.cog      = cog
+        self.guild_id = guild_id
+
+    @discord.ui.button(label="Play Again", style=discord.ButtonStyle.success, emoji="▶")
+    async def play_again(self, button: discord.ui.Button, interaction: discord.Interaction):
+        channel = interaction.channel
+        if self.cog._get_session(channel.id):
+            await interaction.response.send_message(
+                "⚠️ A game is already running here! Use `/sigmonion stop` to end it first.",
+                ephemeral=True,
+            )
+            return
+        await interaction.response.defer()
+        session = GameSession(
+            channel_id=channel.id,
+            guild_id=interaction.guild_id,
+            started_by=interaction.user.id,
+            total_rounds=DEFAULT_ROUNDS,
+            started_at=_now_iso(),
+        )
+        session._usernames = {interaction.user.id: str(interaction.user)}  # type: ignore[attr-defined]
+        self.cog._games[channel.id] = session
+        start_embed = discord.Embed(
+            title="🎮 Sigmonions — Starting!",
+            description=(
+                f"**{DEFAULT_ROUNDS} rounds**  ·  Started by <@{interaction.user.id}>\n\n"
+                "**How to play:** Find groups of **4 words** that share a hidden category.\n"
+                "**Just type 4 letters** in chat to guess — no slash command needed!\n\n"
+                f"✅ Correct group **+{POINTS_CORRECT} pts**  ·  "
+                f"❌ Wrong guess **{POINTS_WRONG} pts**\n"
+                f"⚡ Speed bonuses  ·  🔥 Streak bonuses  ·  "
+                f"⭐ Perfect round **+{POINTS_PERFECT_ROUND} pts**"
+            ),
+            color=discord.Color.green(),
+        )
+        await channel.send(embed=start_embed)
+        await self.cog._start_next_round(channel, session)
+
+    @discord.ui.button(label="Leaderboard", style=discord.ButtonStyle.primary, emoji="🏆")
+    async def leaderboard(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        rows = await get_leaderboard(self.guild_id, limit=10)
+        if not rows:
+            await interaction.followup.send("No leaderboard data yet!", ephemeral=True)
+            return
+        embed = discord.Embed(title="🏆 Leaderboard — Total Points", color=discord.Color.gold())
+        medals = ["🥇", "🥈", "🥉"]
+        lines = []
+        for i, r in enumerate(rows[:10]):
+            medal   = medals[i] if i < 3 else f"`{i+1}.`"
+            correct = r["correct_guesses"]
+            wrong   = r["wrong_guesses"]
+            acc     = _accuracy(correct, wrong)
+            lines.append(f"{medal} **{r['username']}** — {r['total_points']:+} pts  _(acc {acc})_")
+        embed.description = "\n".join(lines)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @discord.ui.button(label="My Stats", style=discord.ButtonStyle.secondary, emoji="📊")
+    async def my_stats(self, button: discord.ui.Button, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        data = await get_user_stats(interaction.user.id, self.guild_id, str(interaction.user))
+        if data["games_played"] == 0:
+            await interaction.followup.send(
+                "You haven't played yet — click **Play Again** to start!", ephemeral=True
+            )
+            return
+        correct = data["correct_guesses"]
+        wrong   = data["wrong_guesses"]
+        embed   = discord.Embed(title=f"📊 Stats — {interaction.user.display_name}", color=discord.Color.blurple())
+        embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        embed.add_field(
+            name="🎮 Games",
+            value=(
+                f"Played: **{data['games_played']}**\n"
+                f"Total pts: **{data['total_points']:+}**\n"
+                f"Best game: **{data['best_game_points']:+}**"
+            ),
+            inline=True,
+        )
+        embed.add_field(
+            name="🎯 Accuracy",
+            value=(
+                f"Correct: **{correct}**\n"
+                f"Wrong: **{wrong}**\n"
+                f"Accuracy: **{_accuracy(correct, wrong)}**"
+            ),
+            inline=True,
+        )
+        embed.add_field(
+            name="🔥 Streaks",
+            value=(
+                f"Best streak: **{data['best_streak']}** 🔥\n"
+                f"Perfect rounds: **{data['perfect_rounds']}** ⭐\n"
+                f"Fastest group: **{_fmt_ms(data['fastest_group_ms'])}**"
+            ),
+            inline=True,
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
 class SigmonionCog(commands.Cog):
 
     sigmonion = discord.SlashCommandGroup(
@@ -103,6 +209,21 @@ class SigmonionCog(commands.Cog):
         self.bot    = bot
         self.engine = GameEngine()
         self._games: dict[int, GameSession] = {}
+
+    @commands.Cog.listener()
+    async def on_ready(self):
+        cats = await get_all_categories()
+        if cats:
+            self.engine.set_categories(cats)
+            log.info("Loaded %d categories from DB.", len(cats))
+        else:
+            log.info("DB has no categories yet — using CSV fallback.")
+
+    async def reload_categories(self):
+        """Refresh the engine's category cache from the DB (called after admin edits)."""
+        cats = await get_all_categories()
+        self.engine.set_categories(cats)
+        log.info("Game engine categories reloaded (%d categories).", len(cats))
 
     # ── Internal helpers ───────────────────────────────────────────────────────
 
@@ -151,7 +272,7 @@ class SigmonionCog(commands.Cog):
         embed.set_footer(text=(
             f"Round {rnd.round_num}/{session.total_rounds}  ·  "
             f"{found_count}/4 found  ·  "
-            "Type 4 letters to guess, e.g.  abcd  ·  /sigmonion board to re-pin"
+            "Type 4 letters to guess, e.g.  abcd"
         ))
         return embed
 
@@ -335,8 +456,8 @@ class SigmonionCog(commands.Cog):
             value=self._build_stats_snapshot(session),
             inline=False,
         )
-        embed.set_footer(text="Play again with /sigmonion play  ·  /sigmonion leaderboard")
-        await channel.send(embed=embed)
+        view = GameOverView(self, session.guild_id)
+        await channel.send(embed=embed, view=view)
         await self._persist_game(session)
 
     # ── on_message guess handler ───────────────────────────────────────────────

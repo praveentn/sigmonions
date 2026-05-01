@@ -100,6 +100,23 @@ async def init_db():
                 ended_at     TEXT
             )
         """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS categories (
+                id         SERIAL PRIMARY KEY,
+                name       TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS category_words (
+                id          SERIAL PRIMARY KEY,
+                category_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+                word        TEXT NOT NULL,
+                created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                UNIQUE (category_id, word)
+            )
+        """)
 
 
 async def get_user_stats(user_id: int, guild_id: int, username: str = None) -> dict:
@@ -327,6 +344,110 @@ async def mark_reminder_sent(guild_id: int, date_str: str) -> None:
                ON CONFLICT (guild_id) DO UPDATE SET last_reminder = EXCLUDED.last_reminder""",
             guild_id, date_str,
         )
+
+
+# ── Categories (question bank) ─────────────────────────────────────────────────
+
+async def get_all_categories() -> dict[str, list[str]]:
+    """Return {category_name: [words]} for game engine use."""
+    async with _db().acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT c.name, cw.word FROM categories c "
+            "JOIN category_words cw ON cw.category_id = c.id ORDER BY c.name, cw.word"
+        )
+    cats: dict[str, list[str]] = {}
+    for row in rows:
+        cats.setdefault(row["name"], []).append(row["word"])
+    return cats
+
+
+async def get_categories_for_admin() -> list[dict]:
+    """Full category data for the admin panel."""
+    async with _db().acquire() as conn:
+        cats = await conn.fetch("""
+            SELECT c.id, c.name, c.updated_at, COUNT(cw.id)::int AS word_count
+            FROM categories c
+            LEFT JOIN category_words cw ON cw.category_id = c.id
+            GROUP BY c.id ORDER BY c.name
+        """)
+        result = []
+        for cat in cats:
+            words = await conn.fetch(
+                "SELECT id, word FROM category_words WHERE category_id=$1 ORDER BY word",
+                cat["id"],
+            )
+            result.append({
+                "id": cat["id"],
+                "name": cat["name"],
+                "word_count": cat["word_count"],
+                "words": [{"id": w["id"], "word": w["word"]} for w in words],
+                "updated_at": str(cat["updated_at"]),
+            })
+    return result
+
+
+async def create_category(name: str, words: list[str]) -> dict:
+    """Create a new category with initial words. Returns the created record."""
+    clean_name = name.strip()
+    clean_words = [w.strip() for w in words if w.strip()]
+    async with _db().acquire() as conn:
+        async with conn.transaction():
+            cat_id = await conn.fetchval(
+                "INSERT INTO categories (name) VALUES ($1) RETURNING id", clean_name
+            )
+            for word in clean_words:
+                await conn.execute(
+                    "INSERT INTO category_words (category_id, word) VALUES ($1, $2) "
+                    "ON CONFLICT (category_id, word) DO NOTHING",
+                    cat_id, word,
+                )
+    return {"id": cat_id, "name": clean_name, "word_count": len(clean_words), "words": []}
+
+
+async def update_category_name(category_id: int, new_name: str) -> bool:
+    async with _db().acquire() as conn:
+        tag = await conn.execute(
+            "UPDATE categories SET name=$1, updated_at=NOW() WHERE id=$2",
+            new_name.strip(), category_id,
+        )
+    return tag == "UPDATE 1"
+
+
+async def add_words_to_category(category_id: int, words: list[str]) -> int:
+    """Insert words (skip duplicates). Returns count of newly inserted words."""
+    count = 0
+    async with _db().acquire() as conn:
+        async with conn.transaction():
+            for word in words:
+                word = word.strip()
+                if not word:
+                    continue
+                tag = await conn.execute(
+                    "INSERT INTO category_words (category_id, word) VALUES ($1, $2) "
+                    "ON CONFLICT (category_id, word) DO NOTHING",
+                    category_id, word,
+                )
+                if tag == "INSERT 0 1":
+                    count += 1
+            if count > 0:
+                await conn.execute(
+                    "UPDATE categories SET updated_at=NOW() WHERE id=$1", category_id
+                )
+    return count
+
+
+async def update_word(word_id: int, new_word: str) -> bool:
+    async with _db().acquire() as conn:
+        tag = await conn.execute(
+            "UPDATE category_words SET word=$1 WHERE id=$2", new_word.strip(), word_id
+        )
+        if tag == "UPDATE 1":
+            await conn.execute(
+                "UPDATE categories SET updated_at=NOW() "
+                "WHERE id=(SELECT category_id FROM category_words WHERE id=$1)",
+                word_id,
+            )
+    return tag == "UPDATE 1"
 
 
 async def get_active_player_ids(guild_id: int) -> list[int]:
