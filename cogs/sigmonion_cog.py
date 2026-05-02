@@ -19,6 +19,7 @@ from utils.database import (
     increment_server_stats,
     get_all_categories,
 )
+from utils.external_leaderboard import report_points
 from utils.game_engine import (
     GameEngine,
     GameSession,
@@ -338,10 +339,11 @@ class SigmonionCog(commands.Cog):
             )
             usernames: dict = getattr(session, "_usernames", {})
             for uid, pts in session.scores.items():
+                uname = usernames.get(uid, str(uid))
                 await upsert_user_after_game(
                     user_id=uid,
                     guild_id=session.guild_id,
-                    username=usernames.get(uid, str(uid)),
+                    username=uname,
                     game_points=pts,
                     groups_found=session.groups_found_counts.get(uid, 0),
                     correct_guesses=session.correct_counts.get(uid, 0),
@@ -351,6 +353,13 @@ class SigmonionCog(commands.Cog):
                     first_finds=session.first_find_counts.get(uid, 0),
                     fastest_ms=session.fastest_ms.get(uid),
                     won_streak=(pts > 0),
+                )
+                await report_points(
+                    user_id=uid,
+                    guild_id=session.guild_id,
+                    username=uname,
+                    points=pts,
+                    match_id=session.game_id,
                 )
         except Exception as exc:
             log.error("Failed to persist game %s: %s", session.game_id, exc, exc_info=True)
